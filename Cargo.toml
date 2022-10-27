@@ -1,0 +1,10 @@
+[workspace]
+
+members = [
+  "libdata",
+  "datacore",
+  "protocol",
+]
+
+[profile.release]
+lto = true

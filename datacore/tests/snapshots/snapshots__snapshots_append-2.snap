@@ -1,0 +1,13 @@
+---
+source: datacore/tests/snapshots.rs
+expression: data_store
+
+---
+[
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+]

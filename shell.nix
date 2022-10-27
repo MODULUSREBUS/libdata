@@ -19,9 +19,12 @@ mkShell {
     git
     gh
     gnumake
-    pkg-config
-    openssl
 
     rust
+    cargo-insta
+    pkg-config
+    openssl
+    protobuf
   ];
+  PROTOC="${protobuf}/bin/protoc";
 }
