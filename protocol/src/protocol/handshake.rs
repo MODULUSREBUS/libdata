@@ -52,26 +52,25 @@ where
     }
 
     /// Wait for handshake and upgrade to [Protocol<IO>].
-    pub async fn handshake(mut self) -> Result<Protocol<T, main::Stage>>
-    {
+    pub async fn handshake(mut self) -> Result<Protocol<T, main::Stage>> {
         if !self.io.options.noise {
-            return self.establish(None)
+            return Protocol::<T, main::Stage>::new(
+                self.io,
+                None,
+            )
         }
 
         loop {
             let event = self.next().await.unwrap()?;
             match event {
-                Event::Handshake(result) => {
-                    return self.establish(Some(result))
+                Event::Handshake(handshake) => {
+                    return Protocol::<T, main::Stage>::new(
+                        self.io,
+                        Some(handshake),
+                    )
                 }
             }
         }
-    }
-
-    fn establish(self, handshake_result: Option<noise::HandshakeResult>)
-        -> Result<Protocol<T, main::Stage>>
-    {
-        Protocol::<T, main::Stage>::new(self.io, handshake_result)
     }
 
     fn init(&mut self) -> Result<()> {
@@ -80,7 +79,7 @@ where
                 noise::Handshake::new(self.io.options.is_initiator)?;
             // If the handshake start returns a buffer, send it now.
             if let Some(buf) = handshake.start()? {
-                self.io.queue_frame_direct(buf.to_vec()).unwrap();
+                self.io.queue_frame(buf.to_vec());
             }
             self.state.handshake = Some(handshake);
         };
@@ -95,9 +94,7 @@ where
         };
 
         if let Some(response_buf) = handshake.read(&buf)? {
-            self.io
-                .queue_frame_direct(response_buf.to_vec())
-                .map_err(|err| anyhow!(err))?;
+            self.io.queue_frame(response_buf.to_vec());
         }
 
         self.state.handshake = Some(handshake);

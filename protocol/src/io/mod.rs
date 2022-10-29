@@ -6,7 +6,7 @@ use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::Options;
-use crate::message::{Frame, EncodeError};
+use crate::message::Frame;
 use self::reader::ReadState;
 use self::writer::WriteState;
 
@@ -56,10 +56,7 @@ where
         return Ok(());
     }
 
-    pub fn queue_frame_direct(&mut self, body: Vec<u8>)
-        -> std::result::Result<bool, EncodeError>
-    {
-        let frame = Frame::Raw(body);
-        self.write_state.try_queue_direct(&frame)
+    pub fn queue_frame(&mut self, body: Vec<u8>) {
+        self.write_state.queue_frame(Frame::Raw(body))
     }
 }

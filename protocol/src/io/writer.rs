@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::Debug;
 use std::io::Result;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -17,6 +17,7 @@ pub enum Step {
     Processing,
 }
 
+#[derive(Debug)]
 pub struct WriteState {
     queue: VecDeque<Frame>,
     buf: Vec<u8>,
@@ -25,20 +26,6 @@ pub struct WriteState {
     end: usize,
     cipher: Option<Cipher>,
     step: Step,
-}
-
-impl fmt::Debug for WriteState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("WriteState")
-            .field("queue (len)", &self.queue.len())
-            .field("step", &self.step)
-            .field("buf (len)", &self.buf.len())
-            .field("current_frame", &self.current_frame)
-            .field("start", &self.start)
-            .field("end", &self.end)
-            .field("cipher", &self.cipher.is_some())
-            .finish()
-    }
 }
 
 impl WriteState {
@@ -54,6 +41,12 @@ impl WriteState {
         }
     }
 
+    pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) -> Result<()> {
+        let cipher = Cipher::from_handshake_tx(handshake)?;
+        self.cipher = Some(cipher);
+        Ok(())
+    }
+
     pub fn queue_frame<F>(&mut self, frame: F)
     where
         F: Into<Frame>,
@@ -61,7 +54,7 @@ impl WriteState {
         self.queue.push_back(frame.into())
     }
 
-    pub fn try_queue_direct<T: Encoder>(
+    fn try_queue_direct<T: Encoder>(
         &mut self,
         frame: &T,
     ) -> std::result::Result<bool, EncodeError> {
@@ -73,40 +66,20 @@ impl WriteState {
             return Ok(false);
         }
         let len = frame.encode(&mut self.buf[self.end..])?;
-        self.advance(len);
-        Ok(true)
-    }
 
-    pub fn can_park_frame(&self) -> bool {
-        self.current_frame.is_none()
-    }
-
-    pub fn park_frame<F>(&mut self, frame: F)
-    where
-        F: Into<Frame>,
-    {
-        if self.current_frame.is_none() {
-            self.current_frame = Some(frame.into())
-        }
-    }
-
-    fn advance(&mut self, n: usize) {
-        let end = self.end + n;
+        // advance
+        let end = self.end + len;
         if let Some(ref mut cipher) = self.cipher {
             cipher.apply(&mut self.buf[self.end..end]);
         }
         self.end = end;
+
+        Ok(true)
     }
 
-    pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) -> Result<()> {
-        let cipher = Cipher::from_handshake_tx(handshake)?;
-        self.cipher = Some(cipher);
-        Ok(())
-    }
     fn remaining(&self) -> usize {
         self.buf.len() - self.end
     }
-
     fn pending(&self) -> usize {
         self.end - self.start
     }

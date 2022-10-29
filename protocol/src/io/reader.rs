@@ -13,6 +13,12 @@ use crate::MAX_MESSAGE_SIZE;
 const READ_BUF_INITIAL_SIZE: usize = 1024 * 128;
 
 #[derive(Debug)]
+enum Step {
+    Header,
+    Body { header_len: usize, body_len: usize },
+}
+
+#[derive(Debug)]
 pub struct ReadState {
     /// The read buffer.
     buf: Vec<u8>,
@@ -46,15 +52,7 @@ impl ReadState {
             frame_type: FrameType::Raw,
         }
     }
-}
 
-#[derive(Debug)]
-enum Step {
-    Header,
-    Body { header_len: usize, body_len: usize },
-}
-
-impl ReadState {
     pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) -> Result<()> {
         let mut cipher = Cipher::from_handshake_rx(handshake)?;
         cipher.apply(&mut self.buf[self.start..self.end]);

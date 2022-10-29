@@ -176,15 +176,11 @@ where
         loop {
             self.io.poll_outbound_write(cx)?;
 
-            if !self.io.write_state.can_park_frame() {
-                return Ok(())
-            }
-
             match Pin::new(&mut self.state.outbound_rx).poll_next(cx) {
                 Poll::Ready(Some(message)) => {
                     self.on_outbound_message(&message);
                     let frame = Frame::Message(message);
-                    self.io.write_state.park_frame(frame);
+                    self.io.write_state.queue_frame(frame);
                 }
                 Poll::Ready(None) => unreachable!("Channel closed before end"),
                 Poll::Pending => return Ok(())
