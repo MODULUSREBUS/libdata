@@ -8,9 +8,8 @@ use futures_timer::Delay;
 
 use crate::message::{Frame, FrameType};
 use crate::noise::{Cipher, HandshakeResult};
-use crate::MAX_MESSAGE_SIZE;
 
-const READ_BUF_INITIAL_SIZE: usize = 1024 * 128;
+const MAX_MESSAGE_SIZE: usize = crate::MAX_MESSAGE_SIZE as usize;
 
 #[derive(Debug)]
 enum Step {
@@ -22,8 +21,6 @@ enum Step {
 pub struct ReadState {
     /// The read buffer.
     buf: Vec<u8>,
-    /// The start of the not-yet-processed byte range in the read buffer.
-    start: usize,
     /// The end of the not-yet-processed byte range in the read buffer.
     end: usize,
     /// The logical state of the reading (either header or body).
@@ -42,8 +39,7 @@ impl ReadState {
     pub fn new(timeout_ms: Option<u64>) -> Self {
         let timeout_duration = timeout_ms.map(Duration::from_millis);
         Self {
-            buf: vec![0u8; READ_BUF_INITIAL_SIZE as usize],
-            start: 0,
+            buf: vec![0u8; MAX_MESSAGE_SIZE],
             end: 0,
             step: Step::Header,
             timeout: timeout_duration.map(Delay::new),
@@ -55,11 +51,10 @@ impl ReadState {
 
     pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) -> Result<()> {
         let mut cipher = Cipher::from_handshake_rx(handshake)?;
-        cipher.apply(&mut self.buf[self.start..self.end]);
+        cipher.apply(&mut self.buf[..self.end]);
         self.cipher = Some(cipher);
         Ok(())
     }
-
     pub fn set_frame_type(&mut self, frame_type: FrameType) {
         self.frame_type = frame_type;
     }
@@ -113,30 +108,23 @@ impl ReadState {
         }
     }
 
-    fn cycle_buf_if_needed(&mut self) {
-        // TODO: It would be great if we wouldn't have to allocate here.
-        if self.end == self.buf.len() {
-            let temp = self.buf[self.start..self.end].to_vec();
-            let len = temp.len();
-            self.buf[..len].copy_from_slice(&temp[..]);
-            self.end = len;
-            self.start = 0;
-        }
-    }
-
     fn process(&mut self) -> Option<Result<Frame>> {
-        if self.start == self.end {
+        if self.end == 0 {
             return None;
         }
+
         loop {
             match self.step {
                 Step::Header => {
                     let mut body_len = 0;
                     let header_len = varinteger::decode(
-                        &self.buf[self.start..self.end], &mut body_len);
-
+                        &self.buf[..self.end],
+                        &mut body_len,
+                    );
                     let body_len = body_len as usize;
-                    if body_len > MAX_MESSAGE_SIZE as usize {
+                    let message_len = header_len + body_len;
+
+                    if message_len > MAX_MESSAGE_SIZE {
                         return Some(Err(Error::new(
                             ErrorKind::InvalidData,
                             "Message length above max allowed size",
@@ -152,16 +140,19 @@ impl ReadState {
                     body_len,
                 } => {
                     let message_len = header_len + body_len;
-                    if message_len > self.buf.len() {
-                        self.buf.resize(message_len, 0u8);
-                    }
-                    if (self.end - self.start) < message_len {
-                        self.cycle_buf_if_needed();
+
+                    if self.end < message_len {
                         return None;
-                    } else {
-                        let range = self.start + header_len..self.start + message_len;
-                        let frame = Frame::decode(&self.buf[range], &self.frame_type);
-                        self.start += message_len;
+                    }
+                    else {
+                        let frame = Frame::decode(
+                            &self.buf[header_len..message_len],
+                            &self.frame_type,
+                        );
+                        if self.end > message_len {
+                            self.buf.copy_within(message_len..self.end, 0);
+                        }
+                        self.end -= message_len;
                         self.step = Step::Header;
                         return Some(frame);
                     }
