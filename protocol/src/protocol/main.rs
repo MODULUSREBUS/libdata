@@ -63,21 +63,19 @@ where
     T: AsyncWrite + AsyncRead + Send + Unpin + 'static,
 {
     /// Create a new [Protocol] after completing the handshake.
-    pub fn new(mut io: IO<T>, result: Option<noise::HandshakeResult>)
-        -> Result<Self>
-    {
+    pub fn new(mut io: IO<T>, result: Option<noise::HandshakeResult>) -> Self {
         // setup core
         if io.options.encrypted && result.is_some() {
             let handshake = result.as_ref().unwrap();
-            io.read_state.upgrade_with_handshake(&handshake)?;
-            io.write_state.upgrade_with_handshake(&handshake)?;
+            io.read_state.upgrade_with_handshake(&handshake);
+            io.write_state.upgrade_with_handshake(&handshake);
         }
         io.read_state.set_frame_type(FrameType::Message);
 
         // setup channels
         let (outbound_tx, outbound_rx) = async_channel::unbounded();
 
-        Ok(Self {
+        Self {
             io,
             state: Stage {
                 handshake: result,
@@ -86,7 +84,7 @@ where
                 outbound_rx,
                 queued_events: VecDeque::new(),
             },
-        })
+        }
     }
 
     /// Open a new protocol channel.

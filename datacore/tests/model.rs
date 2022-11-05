@@ -3,13 +3,8 @@ use common::storage_memory;
 
 use quickcheck::{Arbitrary, Gen};
 use quickcheck_async;
-use rand::seq::SliceRandom;
-use rand::Rng;
-use std::u8;
 
 use datacore::{Core, generate_keypair};
-
-const MAX_FILE_SIZE: u32 = 5 * 10;
 
 #[derive(Clone, Debug)]
 enum Op {
@@ -18,16 +13,18 @@ enum Op {
 }
 
 impl Arbitrary for Op {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         let choices = [0, 1];
-        match choices.choose(g).expect("Value should exist") {
+        match *g.choose(&choices).unwrap() {
             0 => {
-                let index: u32 = g.gen_range(0, MAX_FILE_SIZE);
+                let indexes = [0, 1, 2, 3, 4, 5, 50, 1000, 100000];
+                let index: u32 = *g.choose(&indexes).unwrap();
                 Op::Get { index }
             }
             1 => {
-                let length: u32 = g.gen_range(0, MAX_FILE_SIZE / 3);
-                let mut data = Vec::with_capacity(length as usize);
+                let lengths = [1, 2, 10, 50];
+                let length = *g.choose(&lengths).unwrap();
+                let mut data = Vec::with_capacity(length);
                 for _ in 0..length {
                     data.push(u8::arbitrary(g));
                 }

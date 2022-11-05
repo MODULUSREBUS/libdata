@@ -49,11 +49,10 @@ impl ReadState {
         }
     }
 
-    pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) -> Result<()> {
-        let mut cipher = Cipher::from_handshake_rx(handshake)?;
+    pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) {
+        let mut cipher = Cipher::from_handshake_rx(handshake);
         cipher.apply(&mut self.buf[..self.end]);
         self.cipher = Some(cipher);
-        Ok(())
     }
     pub fn set_frame_type(&mut self, frame_type: FrameType) {
         self.frame_type = frame_type;

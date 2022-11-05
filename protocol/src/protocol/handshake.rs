@@ -54,20 +54,20 @@ where
     /// Wait for handshake and upgrade to [Protocol<IO>].
     pub async fn handshake(mut self) -> Result<Protocol<T, main::Stage>> {
         if !self.io.options.noise {
-            return Protocol::<T, main::Stage>::new(
+            return Ok(Protocol::<T, main::Stage>::new(
                 self.io,
                 None,
-            )
+            ))
         }
 
         loop {
             let event = self.next().await.unwrap()?;
             match event {
                 Event::Handshake(handshake) => {
-                    return Protocol::<T, main::Stage>::new(
+                    return Ok(Protocol::<T, main::Stage>::new(
                         self.io,
                         Some(handshake),
-                    )
+                    ))
                 }
             }
         }

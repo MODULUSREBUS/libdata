@@ -41,10 +41,8 @@ impl WriteState {
         }
     }
 
-    pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) -> Result<()> {
-        let cipher = Cipher::from_handshake_tx(handshake)?;
-        self.cipher = Some(cipher);
-        Ok(())
+    pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) {
+        self.cipher = Some(Cipher::from_handshake_tx(handshake));
     }
 
     pub fn queue_frame<F>(&mut self, frame: F)

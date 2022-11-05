@@ -22,8 +22,11 @@ mkShell {
 
     rust
     cargo-insta
+    cargo-edit
+
     pkg-config
     openssl
+
     protobuf
   ];
   PROTOC="${protobuf}/bin/protoc";
