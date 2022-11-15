@@ -1,5 +1,4 @@
 use anyhow::Result;
-use std::fmt::Debug;
 use std::error::Error;
 use std::pin::Pin;
 use std::task::{Poll, Context};
@@ -14,18 +13,18 @@ use crate::{IndexAccess, Core, BlockSignature};
 /// Async [Stream] iterator over [Core].
 pub struct CoreIterator<D, B, M>
 where
-    D: Send + Debug,
-    B: Send + Debug,
-    M: Send + Debug,
+    D: Send,
+    B: Send,
+    M: Send,
 {
     core: Arc<Mutex<Core<D, B, M>>>,
     task: Pin<Box<dyn Future<Output=(u32, Option<Vec<u8>>)>>>,
 }
 impl<D: 'static, B: 'static, M: 'static> CoreIterator<D, B, M>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
+    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     /// Create a new [CoreIterator].
     pub fn new(core: Arc<Mutex<Core<D, B, M>>>, index: u32) -> Self {
@@ -59,9 +58,9 @@ where
 }
 impl<D: 'static, B: 'static, M: 'static> Stream for CoreIterator<D, B, M>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
+    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     type Item = (u32, Vec<u8>);
 
@@ -77,17 +76,5 @@ where
             return Poll::Ready(data.map(|data| (index, data)))
         }
         Poll::Pending
-    }
-}
-impl<D: 'static, B: 'static, M: 'static> Debug for CoreIterator<D, B, M>
-where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-{
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>)
-        -> Result<(), std::fmt::Error>
-    {
-        write!(fmt, "CoreIterator")
     }
 }

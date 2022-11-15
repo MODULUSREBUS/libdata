@@ -1,5 +1,4 @@
 use anyhow::{Result, anyhow};
-use std::fmt::Debug;
 use std::task::{Context, Poll};
 use std::pin::Pin;
 use std::collections::HashMap;
@@ -34,16 +33,6 @@ where
     protocol: Protocol<T, Stage>,
     command_rx: UnboundedReceiver<Command>,
     replicas: HashMap<DiscoveryKey, Box<dyn ReplicaTrait + Send>>,
-}
-impl<T: 'static> Debug for Replication<T>
-where
-    T: AsyncWrite + AsyncRead + Send + Unpin,
-{
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>)
-        -> Result<(), std::fmt::Error>
-    {
-        write!(fmt, "Replication")
-    }
 }
 impl<T: 'static> Replication<T>
 where
