@@ -1,6 +1,5 @@
 use anyhow::{Result, anyhow};
 use std::error::Error;
-use std::fmt::Debug;
 use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
@@ -12,12 +11,11 @@ use crate::replication::{ReplicaTrait, Request, Data, DataOrRequest};
 /// for [Core] over [Replication].
 ///
 /// [Replication]: super::Replication
-#[derive(Debug)]
 pub struct CoreReplica<D, B, M>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
+    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     core: Arc<Mutex<Core<D, B, M>>>,
     remote_index: Option<u32>,
@@ -25,9 +23,9 @@ where
 
 impl<D, B, M> CoreReplica<D, B, M>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
+    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     /// Create a new [CoreReplica].
     pub fn new(core: Arc<Mutex<Core<D, B, M>>>) -> Self {
@@ -49,9 +47,9 @@ where
 #[async_trait]
 impl<D, B, M> ReplicaTrait for CoreReplica<D, B, M>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send + Debug,
+    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     async fn on_open(&mut self) -> Result<Option<Request>> {
         let core = self.core.lock().await;

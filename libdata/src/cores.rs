@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::fmt::Debug;
 use std::collections::HashMap;
 use std::sync::{Arc, Weak};
 use tokio::sync::Mutex;
@@ -14,12 +13,11 @@ type PublicKeyBytes = [u8; 32];
 /// [Cores] is a container for storing and quickly accessing multiple [Core]s.
 ///
 /// Stored [Core]s can be accessed by [PublicKey] or [DiscoveryKey].
-#[derive(Debug)]
 pub struct Cores<D, B, M>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
+    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     by_public:    HashMap<PublicKeyBytes, Arc<Mutex<Core<D, B, M>>>>,
     by_discovery: HashMap<DiscoveryKey,  Weak<Mutex<Core<D, B, M>>>>,
@@ -27,9 +25,9 @@ where
 
 impl<D, B, M> Cores<D, B, M>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
+    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     /// Create a new [Cores].
     #[inline]

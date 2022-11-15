@@ -1,23 +1,15 @@
 use anyhow::{anyhow, ensure, Result};
 use std::mem::size_of;
 use std::error::Error;
-use std::fmt::Debug;
 
 use crate::merkle::NODE_SIZE;
 use crate::{Merkle, Node, IndexAccess};
 
 /// Save data to a desired storage backend.
-#[derive(Debug)]
-pub struct StoreState<T>
-where
-    T: Debug,
-{
+pub struct StoreState<T> {
     store: T,
 }
-impl<T> StoreState<T>
-where
-    T: Debug,
-{
+impl<T> StoreState<T> {
     /// Create a new [StoreState] from storage interface.
     #[inline]
     pub fn new(store: T) -> Self {
@@ -26,7 +18,7 @@ where
 }
 impl<T> StoreState<T>
 where
-    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
+    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     /// Write `Merkle` roots.
     #[inline]

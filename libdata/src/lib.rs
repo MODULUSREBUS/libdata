@@ -1,6 +1,5 @@
 #![forbid(unsafe_code, bad_style, nonstandard_style, future_incompatible)]
 #![forbid(rust_2018_idioms, rust_2021_compatibility)]
-#![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![cfg_attr(test, allow(dead_code))]
 #![cfg_attr(test, deny(warnings))]

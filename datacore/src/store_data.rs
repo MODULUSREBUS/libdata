@@ -1,21 +1,13 @@
 use anyhow::{anyhow, Result};
 use std::error::Error;
-use std::fmt::Debug;
 
 use crate::IndexAccess;
 
 /// Save data to a desired storage backend.
-#[derive(Debug)]
-pub struct StoreData<T>
-where
-    T: Debug,
-{
+pub struct StoreData<T> {
     store: T,
 }
-impl<T> StoreData<T>
-where
-    T: Debug,
-{
+impl<T> StoreData<T> {
     /// Create a new [StoreData] from storage interface.
     #[inline]
     pub fn new(store: T) -> Self {
@@ -24,7 +16,7 @@ where
 }
 impl<T> StoreData<T>
 where
-    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
+    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     /// Write data for a `Block`.
     #[inline]

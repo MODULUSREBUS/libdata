@@ -3,7 +3,6 @@
 
 use anyhow::{Result, ensure, bail};
 use std::error::Error;
-use std::fmt::Debug;
 use futures_lite::future::zip;
 
 use crate::store_data::StoreData;
@@ -35,13 +34,7 @@ pub const MAX_BLOCK_SIZE: usize = u32::MAX as usize;
 /// [SecretKey]: ed25519_dalek::SecretKey
 /// [PublicKey]: ed25519_dalek::PublicKey
 /// [RandomAccess]: random_access_storage::RandomAccess
-#[derive(Debug)]
-pub struct Core<D, B, S>
-where
-    D: Debug + Send,
-    B: Debug + Send,
-    S: Debug + Send,
-{
+pub struct Core<D, B, S> {
     data: StoreData<D>,
     blocks: StoreBlocks<B>,
     state: StoreState<S>,
@@ -53,12 +46,7 @@ where
     length: u32,
     byte_length: u64,
 }
-impl<D, B, S> Core<D, B, S>
-where
-    D: Debug + Send,
-    B: Debug + Send,
-    S: Debug + Send,
-{
+impl<D, B, S> Core<D, B, S> {
     /// Get the number of entries in the `Core`.
     #[inline]
     pub fn len(&self) -> u32 {
@@ -80,9 +68,9 @@ where
 }
 impl<D, B, S> Core<D, B, S>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
-    S: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Debug + Send,
+    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    S: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     /// Create a new instance with a custom storage backend.
     pub async fn new(
