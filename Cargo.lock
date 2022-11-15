@@ -859,7 +859,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 [[package]]
 name = "index-access-fs"
 version = "0.1.0"
-source = "git+https://github.com/MODULUSREBUS/index-access#ea3e12ccd2602666f8fe0e2097434e01c54c7cac"
+source = "git+https://github.com/MODULUSREBUS/index-access#8b7a27e32facd40a6314b6188da701e1c5c052a3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -870,7 +870,7 @@ dependencies = [
 [[package]]
 name = "index-access-memory"
 version = "0.1.0"
-source = "git+https://github.com/MODULUSREBUS/index-access#ea3e12ccd2602666f8fe0e2097434e01c54c7cac"
+source = "git+https://github.com/MODULUSREBUS/index-access#8b7a27e32facd40a6314b6188da701e1c5c052a3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -880,7 +880,7 @@ dependencies = [
 [[package]]
 name = "index-access-storage"
 version = "0.1.0"
-source = "git+https://github.com/MODULUSREBUS/index-access#ea3e12ccd2602666f8fe0e2097434e01c54c7cac"
+source = "git+https://github.com/MODULUSREBUS/index-access#8b7a27e32facd40a6314b6188da701e1c5c052a3"
 dependencies = [
  "async-trait",
 ]
