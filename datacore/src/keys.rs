@@ -2,8 +2,8 @@
 //! Uses `Ed25519` cryptography.
 
 use anyhow::{Result, ensure};
-use rand::rngs::OsRng;
-use rand_chacha::{ChaCha20Rng};
+use getrandom::getrandom;
+use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::SeedableRng;
 use ed25519_dalek::{ExpandedSecretKey, Verifier};
 
@@ -11,9 +11,9 @@ pub use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature};
 
 /// Create a new [Keypair].
 pub fn generate_keypair() -> Keypair {
-    let seed_rng = OsRng::default();
-    let mut rng = ChaCha20Rng::from_rng(seed_rng)
-        .expect("Could not seed secure RNG generator.");
+    let mut seed: <ChaCha20Rng as SeedableRng>::Seed = Default::default();
+    getrandom(&mut seed).expect("Could not seed RNG");
+    let mut rng = ChaCha20Rng::from_seed(seed);
     Keypair::generate(&mut rng)
 }
 
