@@ -22,27 +22,30 @@ where
     by_public:    HashMap<PublicKeyBytes, Arc<Mutex<Core<D, B, M>>>>,
     by_discovery: HashMap<DiscoveryKey,  Weak<Mutex<Core<D, B, M>>>>,
 }
-
+impl<D, B, M> Default for Cores<D, B, M>
+where
+    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+{
+    fn default() -> Self {
+        Self {
+            by_public: HashMap::new(),
+            by_discovery: HashMap::new(),
+        }
+    }
+}
 impl<D, B, M> Cores<D, B, M>
 where
     D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
     B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
     M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
-    /// Create a new [Cores].
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            by_public: HashMap::new(),
-            by_discovery: HashMap::new(),
-        }
-    }
-
     /// Insert a new [Core].
     #[inline]
     pub fn insert(&mut self, core: Core<D, B, M>)
     {
-        let public = core.public_key().clone();
+        let public = *core.public_key();
         let core = Arc::new(Mutex::new(core));
 
         self.put(&public, core);
@@ -72,14 +75,19 @@ where
         -> Option<Arc<Mutex<Core<D, B, M>>>>
     {
         self.by_discovery.get(key)
-            .map(|weak| weak.upgrade())
-            .flatten()
+            .and_then(|weak| weak.upgrade())
     }
 
     /// Returns the number of contained [Core]s.
     #[inline]
     pub fn len(&self) -> usize {
         self.by_public.len()
+    }
+
+    /// Checks if [Cores] is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.by_public.len() == 0
     }
 
     /// Get the [PublicKey]s of all stored [Core]s in an arbitrary order.
@@ -98,7 +106,7 @@ where
     {
         self.by_public
             .keys()
-            .map(|bytes| discovery_key(bytes))
+            .map(discovery_key)
             .collect()
     }
 

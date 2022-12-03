@@ -11,7 +11,7 @@ use super::CAP_NS_BUF;
 const CIPHER_KEY_LENGTH: usize = 32;
 const HANDSHAKE_PATTERN: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2b";
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct HandshakeResult {
     pub is_initiator: bool,
     pub local_pubkey: Vec<u8>,
@@ -129,7 +129,7 @@ impl Handshake {
 
     fn recv(&mut self, msg: &[u8]) -> Result<usize> {
         self.state
-            .read_message(&msg, &mut self.rx_buf)
+            .read_message(msg, &mut self.rx_buf)
             .map_err(map_err)
     }
     fn send(&mut self) -> Result<usize> {
@@ -143,7 +143,7 @@ impl Handshake {
             return Err(Error::new(ErrorKind::Other, "Handshake read after finish"));
         }
 
-        let rx_len = self.recv(&msg)?;
+        let rx_len = self.recv(msg)?;
 
         if !self.is_initiator() && !self.did_receive {
             self.did_receive = true;

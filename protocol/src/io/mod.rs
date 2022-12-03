@@ -28,7 +28,7 @@ where
             io,
             options,
             read_state: ReadState::new(keepalive_ms),
-            write_state: WriteState::new(),
+            write_state: WriteState::default(),
         }
     }
 
@@ -39,7 +39,7 @@ where
         ) -> Result<Option<Frame>>
     {
         let msg = self.read_state.poll_reader(cx, &mut self.io);
-        return match msg {
+        match msg {
             Poll::Ready(Ok(message)) => Ok(Some(message)),
             Poll::Ready(Err(e)) => Err(anyhow!(e)),
             Poll::Pending => Ok(None),
@@ -53,7 +53,7 @@ where
         if let Poll::Ready(Err(e)) = poll {
             return Err(anyhow!(e));
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn queue_frame(&mut self, body: Vec<u8>) {

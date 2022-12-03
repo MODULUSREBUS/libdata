@@ -4,7 +4,6 @@ use super::MAX_MESSAGE_SIZE;
 use prost::Message as _;
 use std::fmt;
 use std::io;
-use hex;
 
 /// Error if the buffer has insufficient size to encode a message.
 #[derive(Debug)]
@@ -70,7 +69,7 @@ impl Encoder for &[u8] {
 }
 
 /// The type of a data frame.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FrameType {
     Raw,
     Message,
@@ -279,8 +278,7 @@ impl ChannelMessage {
             ));
         }
         let mut header = 0u64;
-        let headerlen = varinteger::decode(&buf, &mut header);
-        // let body = buf.split_off(headerlen);
+        let headerlen = varinteger::decode(buf, &mut header);
         let channel = header >> 4;
         let typ = header & 0b1111;
         let message = Message::decode(&buf[headerlen..], typ)?;

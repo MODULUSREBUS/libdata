@@ -67,8 +67,8 @@ where
         // setup core
         if io.options.encrypted && result.is_some() {
             let handshake = result.as_ref().unwrap();
-            io.read_state.upgrade_with_handshake(&handshake);
-            io.write_state.upgrade_with_handshake(&handshake);
+            io.read_state.upgrade_with_handshake(handshake);
+            io.write_state.upgrade_with_handshake(handshake);
         }
         io.read_state.set_frame_type(FrameType::Message);
 
@@ -126,7 +126,7 @@ where
     async fn send(
         &mut self, discovery_key: &DiscoveryKey, msg: Message) -> Result<()>
     {
-        match self.state.channels.get(&discovery_key) {
+        match self.state.channels.get(discovery_key) {
             None => Ok(()),
             Some(channel) => {
                 if channel.is_connected() {
@@ -144,13 +144,13 @@ where
     pub async fn request(
         &mut self, discovery_key: &DiscoveryKey, msg: Request) -> Result<()>
     {
-        self.send(&discovery_key, Message::Request(msg)).await
+        self.send(discovery_key, Message::Request(msg)).await
     }
     /// Send a [Message::Data] on a channel.
     pub async fn data(
         &mut self, discovery_key: &DiscoveryKey, msg: Data) -> Result<()>
     {
-        self.send(&discovery_key, Message::Data(msg)).await
+        self.send(discovery_key, Message::Data(msg)).await
     }
 
     fn poll_inbound_read(&mut self, cx: &mut Context<'_>) -> Result<()> {
@@ -214,10 +214,9 @@ where
                     // Emit [Event::Message].
                     let discovery_key = self.state.channels
                         .get_remote(remote_id as usize)
-                        .map(|remote| remote.discovery_key().clone());
+                        .map(|remote| remote.discovery_key());
                     if let Some(discovery_key) = discovery_key {
-                        self.queue_event(
-                            Event::Message(discovery_key.clone(), message));
+                        self.queue_event(Event::Message(*discovery_key, message));
                     }
                 },
             },

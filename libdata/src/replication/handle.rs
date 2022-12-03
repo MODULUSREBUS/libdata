@@ -46,7 +46,7 @@ impl ReplicationHandle {
         replica: Box<dyn ReplicaTrait + Send>,
         ) -> Result<()>
     {
-        let cmd = Command::Open(key.clone(), replica);
+        let cmd = Command::Open(*key, replica);
         self.tx.send(cmd).map_err(|_| anyhow!("Error sending command."))
     }
 

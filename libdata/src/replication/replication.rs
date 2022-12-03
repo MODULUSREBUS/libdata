@@ -76,7 +76,7 @@ where
     /// with an `on_discovery` hook: handle [ProtocolEvent::DiscoveryKey].
     pub async fn run_with_discovery_hook<F>(
         mut self,
-        on_discovery: impl Fn(DiscoveryKey) -> F,
+        on_discovery: impl Fn(DiscoveryKey) -> F + Copy,
         ) -> Result<()>
     where
         F: Future<Output=Result<()>>,
@@ -89,7 +89,6 @@ where
                     }
                 },
                 Event::Event(event) => {
-                    let on_discovery = |discovery| on_discovery(discovery);
                     if !self.handle_event(event, on_discovery).await? {
                         return Ok(())
                     }
@@ -123,7 +122,7 @@ where
                 for (_, replica) in self.replicas.iter_mut() {
                     is_error |= replica.on_close().await.is_err();
                 }
-                return match is_error {
+                match is_error {
                     true => Err(anyhow!("Quit before replication finished.")),
                     false => Ok(false),
                 }

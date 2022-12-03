@@ -23,11 +23,11 @@ pub trait Node<H> {
     /// Get the hash contained in the node.
     fn hash(&self) -> &H;
     /// Get the length of the node.
-    fn len(&self) -> u64;
+    fn length(&self) -> u64;
 }
 
 /// Node representation.
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct DefaultNode<H> {
     /// Offset into the flat-tree data structure.
     pub index: u64,
@@ -51,7 +51,7 @@ impl<H> Node<H> for DefaultNode<H> {
         &self.hash
     }
     #[inline]
-    fn len(&self) -> u64 {
+    fn length(&self) -> u64 {
         self.length
     }
 }
@@ -107,7 +107,7 @@ impl<H: HashMethods> MerkleTreeStream<H> {
                 H::Node::new(
                     left_parent,
                     hash,
-                    left.len() + right.len())
+                    left.length() + right.length())
             };
             for _ in 0..2 {
                 self.roots.pop();

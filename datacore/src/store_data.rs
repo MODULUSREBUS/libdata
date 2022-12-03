@@ -27,7 +27,7 @@ where
         ) -> Result<()>
     {
         self.store
-            .write(index.to_string(), &data)
+            .write(index.to_string(), data)
             .await.map_err(|e| anyhow!(e))
     }
 

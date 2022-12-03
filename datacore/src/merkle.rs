@@ -65,7 +65,7 @@ impl NodeTrait<Hash> for Node {
         &self.hash
     }
     #[inline]
-    fn len(&self) -> u64 {
+    fn length(&self) -> u64 {
         self.length
     }
 }
@@ -96,14 +96,12 @@ impl HashMethods for H {
 pub struct Merkle {
     stream: MerkleTreeStream<H>,
 }
-
-impl Merkle {
-    /// Create a new [Merkle].
-    #[inline]
-    pub fn new() -> Self {
+impl Default for Merkle {
+    fn default() -> Self {
         Self::from_roots(vec![])
     }
-
+}
+impl Merkle {
     /// Create a [Merkle] from root [Node]s.
     #[inline]
     pub fn from_roots(roots: Vec<Node>) -> Self {
@@ -145,12 +143,12 @@ mod tests {
 
     #[test]
     fn init() {
-        Merkle::new();
+        Merkle::default();
     }
 
     #[test]
     fn node() {
-        let mut merkle = Merkle::new();
+        let mut merkle = Merkle::default();
         merkle.next(Hash::from_leaf("a".as_bytes()), 1);
         let node = merkle.roots().get(0).unwrap();
         let node2 = Node::from_bytes(&node.to_bytes().unwrap()).unwrap();
@@ -159,7 +157,7 @@ mod tests {
 
     #[test]
     fn next() {
-        let mut merkle = Merkle::new();
+        let mut merkle = Merkle::default();
         merkle.next(Hash::from_leaf("a".as_bytes()), 1);
         merkle.next(Hash::from_leaf("b".as_bytes()), 1);
         merkle.next(Hash::from_leaf("c".as_bytes()), 1);
@@ -168,7 +166,7 @@ mod tests {
 
     #[test]
     fn next_long_data() {
-        let mut merkle = Merkle::new();
+        let mut merkle = Merkle::default();
         let data1 = "hello_world".as_bytes();
         let data2 = vec![7u8; 1024];
         merkle.next(Hash::from_leaf(data1), data1.len() as u64);
@@ -178,7 +176,7 @@ mod tests {
 
     #[test]
     fn roots_full() {
-        let mut merkle = Merkle::new();
+        let mut merkle = Merkle::default();
         merkle.next(Hash::from_leaf("a".as_bytes()), 1);
         merkle.next(Hash::from_leaf("b".as_bytes()), 1);
         merkle.next(Hash::from_leaf("c".as_bytes()), 1);
@@ -189,7 +187,7 @@ mod tests {
     }
     #[test]
     fn roots() {
-        let mut merkle = Merkle::new();
+        let mut merkle = Merkle::default();
         merkle.next(Hash::from_leaf("a".as_bytes()), 1);
         merkle.next(Hash::from_leaf("b".as_bytes()), 1);
         merkle.next(Hash::from_leaf("c".as_bytes()), 1);

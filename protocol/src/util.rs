@@ -9,5 +9,5 @@ const DISCOVERY_NS_BUF: &[u8] = b"hypercore";
 ///
 /// The discovery key is a 32 byte namespaced hash of the key.
 pub fn discovery_key(key: &[u8; 32]) -> DiscoveryKey {
-    *keyed_hash(key, &DISCOVERY_NS_BUF).as_bytes()
+    *keyed_hash(key, DISCOVERY_NS_BUF).as_bytes()
 }

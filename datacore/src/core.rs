@@ -140,10 +140,10 @@ where
                     None => bail!("No SecretKey for Core, cannot append."),
                 };
                 let data_hash = Hash::from_leaf(data);
-                let data_sign = sign(&self.public_key, &secret, &data_hash);
+                let data_sign = sign(&self.public_key, secret, &data_hash);
                 self.merkle.next(data_hash, data_length as u64);
-                let tree_sign = sign(&self.public_key,
-                                     &secret, &hash_merkle(&self.merkle));
+                let tree_sign = sign(
+                    &self.public_key, secret, &hash_merkle(&self.merkle));
                 BlockSignature::new(data_sign, tree_sign)
             },
         };
@@ -152,7 +152,7 @@ where
             self.byte_length, data_length as u32, signature);
 
         let (d, b) = zip(
-            self.data.write(index, &data),
+            self.data.write(index, data),
             self.blocks.write(index, &block))
             .await; d?; b?;
         self.state.write(&self.merkle).await?;
@@ -196,7 +196,7 @@ fn hash_merkle(merkle: &Merkle) -> Hash {
         .map(|root| root.hash())
         .collect::<Vec<&Hash>>();
     let lengths = roots.iter()
-        .map(|root| root.len())
+        .map(|root| root.length())
         .collect::<Vec<u64>>();
     Hash::from_roots(&hashes, &lengths)
 }

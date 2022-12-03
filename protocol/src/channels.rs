@@ -1,7 +1,6 @@
 use anyhow::{Result, anyhow};
 use std::io::{Error, ErrorKind};
 use std::collections::HashMap;
-use hex;
 
 use crate::{Key, DiscoveryKey, discovery_key};
 

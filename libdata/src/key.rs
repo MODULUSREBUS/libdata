@@ -8,7 +8,7 @@ pub use protocol::{DiscoveryKey, discovery_key};
 /// Derive a named [Keypair] from a base [SecretKey].
 pub fn derive_keypair(key: &SecretKey, name: &str) -> Keypair {
     let seed: <ChaCha20Rng as SeedableRng>::Seed =
-        derive_key(name, &key.to_bytes()).into();
+        derive_key(name, &key.to_bytes());
 
     let mut rng = ChaCha20Rng::from_seed(seed);
     Keypair::generate(&mut rng)

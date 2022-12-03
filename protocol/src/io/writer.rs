@@ -27,9 +27,8 @@ pub struct WriteState {
     cipher: Option<Cipher>,
     step: Step,
 }
-
-impl WriteState {
-    pub fn new() -> Self {
+impl Default for WriteState {
+    fn default() -> Self {
         Self {
             queue: VecDeque::new(),
             buf: vec![0u8; BUF_SIZE],
@@ -40,7 +39,8 @@ impl WriteState {
             step: Step::Processing,
         }
     }
-
+}
+impl WriteState {
     pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) {
         self.cipher = Some(Cipher::from_handshake_tx(handshake));
     }

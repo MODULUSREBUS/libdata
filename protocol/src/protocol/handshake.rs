@@ -20,7 +20,7 @@ macro_rules! return_error {
 }
 
 /// Handshake events.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Event {
     /// Emitted after the handshake with the remote peer is complete.
     /// This is the first event (if the handshake is not disabled).
@@ -60,17 +60,12 @@ where
             ))
         }
 
-        loop {
-            let event = self.next().await.unwrap()?;
-            match event {
-                Event::Handshake(handshake) => {
-                    return Ok(Protocol::<T, main::Stage>::new(
-                        self.io,
-                        Some(handshake),
-                    ))
-                }
-            }
-        }
+        let Event::Handshake(handshake) = self.next().await.unwrap()?;
+
+        Ok(Protocol::<T, main::Stage>::new(
+            self.io,
+            Some(handshake),
+        ))
     }
 
     fn init(&mut self) -> Result<()> {

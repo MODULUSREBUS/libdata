@@ -3,7 +3,7 @@ use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 /// Duplex IO stream from reader and writer halves.
 ///
 /// Convert an AsyncRead reader and AsyncWrite writer into a
