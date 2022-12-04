@@ -318,11 +318,15 @@ impl Encoder for ChannelMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use getrandom::getrandom;
 
     macro_rules! message_enc_dec {
         ($( $msg:expr ),*) => {
             $(
-                let channel = rand::random::<u8>() as u64;
+                let mut channel: [u8; 1] = Default::default();
+                getrandom(&mut channel)
+                    .expect("Could not getrandom");
+                let channel = u64::from(channel[0]);
                 let channel_message = ChannelMessage::new(channel, $msg);
                 let mut buf = vec![0u8; channel_message.encoded_len()];
                 let n = channel_message.encode(&mut buf[..])

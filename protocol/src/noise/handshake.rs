@@ -1,6 +1,6 @@
 use std::io::{Error, ErrorKind, Result};
 use prost::Message;
-use rand::Rng;
+use getrandom::getrandom;
 use blake2_rfc::blake2b::Blake2b;
 use snow::{Builder, Error as SnowError, HandshakeState};
 pub use snow::Keypair;
@@ -88,7 +88,7 @@ impl Handshake {
     pub fn new(is_initiator: bool) -> Result<Self> {
         let (state, local_keypair) = build_handshake_state(is_initiator).map_err(map_err)?;
 
-        let local_nonce = generate_nonce();
+        let local_nonce = generate_nonce()?;
         let payload = encode_nonce(local_nonce.clone());
 
         let result = HandshakeResult {
@@ -190,9 +190,10 @@ fn map_err(e: SnowError) -> Error {
 }
 
 #[inline]
-fn generate_nonce() -> Vec<u8> {
-    let random_bytes = rand::thread_rng().gen::<[u8; 24]>();
-    random_bytes.to_vec()
+fn generate_nonce() -> Result<Vec<u8>> {
+    let mut bytes: [u8; 24] = Default::default();
+    getrandom(&mut bytes)?;
+    Ok(bytes.to_vec())
 }
 
 #[inline]
