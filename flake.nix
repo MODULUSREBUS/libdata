@@ -30,7 +30,7 @@
 
           pkg-config
           gcc
-          openssl
+          openssl.dev
 
           protobuf
         ];
@@ -44,6 +44,10 @@
           }
         ];
         env = [
+          {
+            name = "PKG_CONFIG_PATH";
+            prefix = "$DEVSHELL_DIR/lib/pkgconfig";
+          }
           {
             name = "PROTOC";
             value = "${pkgs.protobuf}/bin/protoc";

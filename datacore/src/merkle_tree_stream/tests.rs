@@ -33,7 +33,7 @@ fn mts_one_node() {
 
     // check node
     let n = mts.roots.pop().unwrap();
-    assert_eq!(5, n.len());
+    assert_eq!(5, n.length());
     assert_eq!(0, n.index());
 
     let expected =

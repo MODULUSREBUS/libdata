@@ -25,7 +25,7 @@ fn hash_tree(merkle: &Merkle) -> Hash {
         .map(|root| root.hash())
         .collect::<Vec<&Hash>>();
     let lengths = roots.iter()
-        .map(|root| root.len())
+        .map(|root| root.length())
         .collect::<Vec<u64>>();
     Hash::from_roots(&hashes, &lengths)
 }
@@ -58,7 +58,7 @@ pub async fn replicate_manual() {
     core.append(data2, None).await.unwrap();
     assert_eq!(core.len(), 2);
 
-    let mut merkle = Merkle::new();
+    let mut merkle = Merkle::default();
     let data_hash = Hash::from_leaf(data1);
     let data_sign = sign(&keypair3.public, &keypair3.secret, &data_hash);
     merkle.next(data_hash.clone(), data1.len() as u64);
@@ -113,7 +113,7 @@ pub async fn replicate_manual_no_secret_key() {
     core.append(data2, None).await.unwrap();
     assert_eq!(core.len(), 2);
 
-    let mut merkle = Merkle::new();
+    let mut merkle = Merkle::default();
     let data_hash = Hash::from_leaf(data1);
     merkle.next(data_hash.clone(), data1.len() as u64);
     let signature = BlockSignature::new(

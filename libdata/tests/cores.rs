@@ -28,7 +28,7 @@ async fn cores_insert_get() -> Result<()>
     let a_public = a.public_key().clone();
     let b = new_core().await?;
 
-    let mut cores = Cores::new();
+    let mut cores = Cores::default();
     cores.insert(a);
 
     assert!(cores.get_by_public(&a_public).is_some());
@@ -53,7 +53,7 @@ async fn cores_insert_2() -> Result<()>
     let b = new_core().await?;
     let b_public = b.public_key().clone();
 
-    let mut cores = Cores::new();
+    let mut cores = Cores::default();
     cores.insert(a);
     cores.insert(b);
 

@@ -97,7 +97,7 @@ mod tests {
     #[test]
     pub async fn write_read() -> Result<()> {
         let mut store = StoreState::new(iam());
-        let mut merkle = Merkle::new();
+        let mut merkle = Merkle::default();
         merkle.next(Hash::from_leaf(b"a"), 1);
         merkle.next(Hash::from_leaf(b"b"), 1);
         merkle.next(Hash::from_leaf(b"c"), 1);

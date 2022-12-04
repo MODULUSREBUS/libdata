@@ -65,7 +65,7 @@ pub async fn core_signatures() {
     core.append(data1, None).await.unwrap();
     core.append(data2, None).await.unwrap();
 
-    let mut merkle = Merkle::new();
+    let mut merkle = Merkle::default();
     merkle.next(Hash::from_leaf(data1), data1.len() as u64);
     let signature1 = BlockSignature::new(
         sign(&keypair2.public, &keypair2.secret, &Hash::from_leaf(data1)),
@@ -190,7 +190,7 @@ fn hash_tree(merkle: &Merkle) -> Hash {
         .map(|root| root.hash())
         .collect::<Vec<&Hash>>();
     let lengths = roots.iter()
-        .map(|root| root.len())
+        .map(|root| root.length())
         .collect::<Vec<u64>>();
     Hash::from_roots(&hashes, &lengths)
 }
