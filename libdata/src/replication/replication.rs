@@ -111,9 +111,7 @@ where
                 Ok(true)
             },
             Command::Close(key) => {
-                self.protocol
-                    .close(key)
-                    .await?;
+                self.protocol.close(key)?;
                 self.replicas.remove(&key);
                 Ok(true)
             },
@@ -182,9 +180,7 @@ where
         if let Some(replica) = self.replicas.get_mut(key) {
             let request = replica.on_open().await?;
             if let Some(request) = request {
-                self.protocol
-                    .request(key, request)
-                    .await?;
+                self.protocol.request(key, request)?;
             }
         }
         Ok(())
@@ -207,9 +203,9 @@ where
             let msg = replica.on_request(request).await?;
             match msg {
                 Some(DataOrRequest::Data(data)) =>
-                    self.protocol.data(key, data).await?,
+                    self.protocol.data(key, data)?,
                 Some(DataOrRequest::Request(request)) =>
-                    self.protocol.request(key, request).await?,
+                    self.protocol.request(key, request)?,
                 None => {},
             };
         }
@@ -222,9 +218,7 @@ where
         if let Some(replica) = self.replicas.get_mut(key) {
             let request = replica.on_data(data).await?;
             if let Some(request) = request {
-                self.protocol
-                    .request(key, request)
-                    .await?;
+                self.protocol.request(key, request)?;
             }
         }
         Ok(())

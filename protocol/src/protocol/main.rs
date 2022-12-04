@@ -1,10 +1,10 @@
 use anyhow::{Result, anyhow};
 use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::sync::mpsc;
 use tokio_stream::Stream;
 use std::task::{Context, Poll};
 use std::pin::Pin;
 use std::io::{self, Error, ErrorKind};
-use async_channel::{Receiver, Sender};
 use std::collections::VecDeque;
 use std::convert::TryInto;
 
@@ -24,7 +24,8 @@ macro_rules! return_error {
     };
 }
 
-fn map_channel_err<T>(err: async_channel::SendError<T>) -> Error {
+#[inline]
+fn map_channel_err<T>(err: mpsc::error::SendError<T>) -> Error {
     Error::new(
         ErrorKind::BrokenPipe,
         format!("Cannot forward on channel: {}", err),
@@ -52,8 +53,8 @@ pub enum Event {
 pub struct Stage {
     handshake: Option<noise::HandshakeResult>,
     channels: ChannelMap,
-    outbound_rx: Receiver<ChannelMessage>,
-    outbound_tx: Sender<ChannelMessage>,
+    outbound_rx: mpsc::UnboundedReceiver<ChannelMessage>,
+    outbound_tx: mpsc::UnboundedSender<ChannelMessage>,
     queued_events: VecDeque<Event>,
 }
 impl ProtocolStage for Stage {}
@@ -73,7 +74,7 @@ where
         io.read_state.set_frame_type(FrameType::Message);
 
         // setup channels
-        let (outbound_tx, outbound_rx) = async_channel::unbounded();
+        let (outbound_tx, outbound_rx) = mpsc::unbounded_channel();
 
         Self {
             io,
@@ -116,16 +117,14 @@ where
     }
 
     /// Close a protocol channel.
-    pub async fn close(&mut self, discovery_key: DiscoveryKey) -> Result<()> {
+    pub fn close(&mut self, discovery_key: DiscoveryKey) -> Result<()> {
         self.send(&discovery_key, Message::Close(Close {
             discovery_key: discovery_key.to_vec(),
-        })).await
+        }))
     }
 
     /// Send a [Message] on a channel.
-    async fn send(
-        &mut self, discovery_key: &DiscoveryKey, msg: Message) -> Result<()>
-    {
+    fn send(&mut self, discovery_key: &DiscoveryKey, msg: Message) -> Result<()> {
         match self.state.channels.get(discovery_key) {
             None => Ok(()),
             Some(channel) => {
@@ -134,23 +133,19 @@ where
                     let msg = ChannelMessage::new(local_id as u64, msg);
                     self.state.outbound_tx
                         .send(msg)
-                        .await.map_err(map_channel_err)?;
+                        .map_err(map_channel_err)?;
                 }
                 Ok(())
             },
         }
     }
     /// Send a [Message::Request] on a channel.
-    pub async fn request(
-        &mut self, discovery_key: &DiscoveryKey, msg: Request) -> Result<()>
-    {
-        self.send(discovery_key, Message::Request(msg)).await
+    pub fn request(&mut self, discovery_key: &DiscoveryKey, msg: Request) -> Result<()> {
+        self.send(discovery_key, Message::Request(msg))
     }
     /// Send a [Message::Data] on a channel.
-    pub async fn data(
-        &mut self, discovery_key: &DiscoveryKey, msg: Data) -> Result<()>
-    {
-        self.send(discovery_key, Message::Data(msg)).await
+    pub fn data(&mut self, discovery_key: &DiscoveryKey, msg: Data) -> Result<()> {
+        self.send(discovery_key, Message::Data(msg))
     }
 
     fn poll_inbound_read(&mut self, cx: &mut Context<'_>) -> Result<()> {
@@ -174,7 +169,7 @@ where
         loop {
             self.io.poll_outbound_write(cx)?;
 
-            match Pin::new(&mut self.state.outbound_rx).poll_next(cx) {
+            match Pin::new(&mut self.state.outbound_rx).poll_recv(cx) {
                 Poll::Ready(Some(message)) => {
                     self.on_outbound_message(&message);
                     let frame = Frame::Message(message);

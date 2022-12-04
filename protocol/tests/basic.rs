@@ -34,12 +34,12 @@ async fn basic_protocol() -> anyhow::Result<()> {
                     },
                     Open(remote_discovery) => {
                         if remote_discovery == discovery {
-                            proto.close(discovery).await?;
+                            proto.close(discovery)?;
                         }
                     },
                     Close(remote_discovery) => {
                         if remote_discovery == discovery {
-                            proto.close(discovery).await?;
+                            proto.close(discovery)?;
                             return Ok(proto);
                         }
                     },
@@ -80,12 +80,12 @@ async fn basic_protocol_both_open() -> anyhow::Result<()> {
                 match msg {
                     Open(remote_discovery) => {
                         if remote_discovery == discovery {
-                            proto.close(discovery).await?;
+                            proto.close(discovery)?;
                         }
                     },
                     Close(remote_discovery) => {
                         if remote_discovery == discovery {
-                            proto.close(discovery).await?;
+                            proto.close(discovery)?;
                             return Ok(proto);
                         }
                     },
