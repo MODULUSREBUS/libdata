@@ -18,7 +18,6 @@ async fn iter_simple() -> Result<()>
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        storage_memory(),
         keypair.public, Some(keypair.secret))
         .await.unwrap();
 
@@ -42,7 +41,6 @@ async fn iter_offset() -> Result<()>
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        storage_memory(),
         keypair.public, Some(keypair.secret))
         .await.unwrap();
 
@@ -63,7 +61,6 @@ async fn iter_out_of_bounds() -> Result<()>
 {
     let keypair = generate_keypair();
     let mut core = Core::new(
-        storage_memory(),
         storage_memory(),
         storage_memory(),
         keypair.public, Some(keypair.secret))

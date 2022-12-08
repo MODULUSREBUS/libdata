@@ -5,28 +5,42 @@ use std::error::Error;
 use crate::merkle::NODE_SIZE;
 use crate::{Merkle, Node, IndexAccess};
 
+const STATE_INDEX: &str = "0";
+
 /// Save data to a desired storage backend.
-pub struct StoreState<T> {
+pub struct Store<T> {
     store: T,
 }
-impl<T> StoreState<T> {
-    /// Create a new [StoreState] from storage interface.
+impl<T> Store<T> {
+    /// Create a new [Store] from storage interface.
     #[inline]
     pub fn new(store: T) -> Self {
         Self { store }
     }
 }
-impl<T> StoreState<T>
+impl<T> Store<T>
 where
     T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
+    /// Write data for a `Block`.
+    #[inline]
+    pub async fn write(&mut self, index: u32, data: &[u8]) -> Result<()> {
+        self.store
+            .write((index + 1).to_string(), data)
+            .await.map_err(|e| anyhow!(e))
+    }
+
+    /// Read data for a `Block`.
+    #[inline]
+    pub async fn read(&mut self, index: u32) -> Result<Vec<u8>> {
+        self.store
+            .read((index + 1).to_string())
+            .await.map_err(|e| anyhow!(e))
+    }
+
     /// Write `Merkle` roots.
     #[inline]
-    pub async fn write(
-        &mut self,
-        merkle: &Merkle,
-        ) -> Result<()>
-    {
+    pub async fn write_merkle(&mut self, merkle: &Merkle) -> Result<()> {
         let roots = merkle.roots();
         let length = roots.len();
 
@@ -36,19 +50,16 @@ where
         }
 
         self.store
-            .write("state".to_owned(), &data)
+            .write(STATE_INDEX.to_owned(), &data)
             .await.map_err(|e| anyhow!(e))
     }
 
     /// Read roots and reconstruct `Merkle`.
     #[inline]
-    pub async fn read(
-        &mut self,
-        ) -> Result<Merkle>
-    {
+    pub async fn read_merkle(&mut self) -> Result<Merkle> {
         // try reading length
         let data = self.store
-            .read("state".to_owned())
+            .read(STATE_INDEX.to_string())
             .await.map_err(|e| anyhow!(e));
 
         // init [Merkle] from roots
@@ -79,30 +90,35 @@ where
 
 #[cfg(test)]
 mod tests {
-    use tokio::test;
     use index_access_memory::IndexAccessMemory;
     use crate::hash::Hash;
     use super::*;
 
-    fn iam() -> IndexAccessMemory {
-        IndexAccessMemory::new()
-    }
-
-    #[test]
-    pub async fn init() -> Result<()> {
-        StoreState::new(iam());
+    #[tokio::test]
+    async fn init() -> Result<()> {
+        Store::new(IndexAccessMemory::new());
         Ok(())
     }
 
-    #[test]
-    pub async fn write_read() -> Result<()> {
-        let mut store = StoreState::new(iam());
+    #[tokio::test]
+    async fn data() -> Result<()> {
+        let mut store = Store::new(IndexAccessMemory::new());
+        let data = b"hello world";
+        store.write(0, data).await?;
+        let read = store.read(0).await?;
+        assert_eq!(read, data);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn merkle() -> Result<()> {
+        let mut store = Store::new(IndexAccessMemory::new());
         let mut merkle = Merkle::default();
         merkle.next(Hash::from_leaf(b"a"), 1);
         merkle.next(Hash::from_leaf(b"b"), 1);
         merkle.next(Hash::from_leaf(b"c"), 1);
-        store.write(&merkle).await?;
-        let merkle2 = store.read().await?;
+        store.write_merkle(&merkle).await?;
+        let merkle2 = store.read_merkle().await?;
         assert_eq!(merkle.roots(), merkle2.roots());
         Ok(())
     }

@@ -31,7 +31,7 @@ where
         ensure!(data.len() == BLOCK_LENGTH as usize);
 
         self.store
-            .write(index.to_string(), &data)
+            .write((index + 1).to_string(), &data)
             .await.map_err(|e| anyhow!(e))
     }
 
@@ -43,7 +43,7 @@ where
         ) -> Result<Block>
     {
         let data = self.store
-            .read(index.to_string())
+            .read((index + 1).to_string())
             .await.map_err(|e| anyhow!(e))?;
         ensure!(data.len() == BLOCK_LENGTH as usize);
 

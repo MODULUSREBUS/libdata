@@ -41,7 +41,6 @@ async fn implementation_matches_model(ops: Vec<Op>) -> bool {
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        storage_memory(),
         keypair.public, Some(keypair.secret))
         .await.unwrap();
     let mut model = vec![];

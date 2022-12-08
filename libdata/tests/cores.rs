@@ -4,8 +4,7 @@ use tokio::test;
 use index_access_memory::IndexAccessMemory;
 use libdata::{Core, Cores, generate_keypair, discovery_key};
 
-type CoreIAM =
-    Core<IndexAccessMemory, IndexAccessMemory, IndexAccessMemory>;
+type CoreIAM = Core<IndexAccessMemory, IndexAccessMemory>;
 
 pub fn storage_memory() -> IndexAccessMemory {
     IndexAccessMemory::new()
@@ -14,7 +13,6 @@ async fn new_core() -> Result<CoreIAM>
 {
     let keypair = generate_keypair();
     Core::new(
-        storage_memory(),
         storage_memory(),
         storage_memory(),
         keypair.public, Some(keypair.secret))

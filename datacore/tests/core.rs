@@ -15,7 +15,6 @@ pub async fn core_init() {
     let core = Core::new(
         storage_memory(),
         storage_memory(),
-        storage_memory(),
         keypair.public, Some(keypair.secret))
         .await.unwrap();
 
@@ -26,7 +25,6 @@ pub async fn core_init() {
 pub async fn core_append() {
     let keypair = generate_keypair();
     let mut core = Core::new(
-        storage_memory(),
         storage_memory(),
         storage_memory(),
         keypair.public, Some(keypair.secret))
@@ -53,7 +51,6 @@ pub async fn core_signatures() {
     let keypair = generate_keypair();
     let keypair2 = copy_keypair(&keypair);
     let mut core = Core::new(
-        storage_memory(),
         storage_memory(),
         storage_memory(),
         keypair.public, Some(keypair.secret))
@@ -90,7 +87,6 @@ pub async fn core_get_head() {
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        storage_memory(),
         keypair.public, Some(keypair.secret))
         .await.unwrap();
 
@@ -119,7 +115,6 @@ pub async fn core_append_no_secret_key() {
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        storage_memory(),
         keypair.public, None)
         .await.unwrap();
 
@@ -132,9 +127,8 @@ pub async fn core_disk_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let keypair = generate_keypair();
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("d")).await,
-        storage_fs(&dir.to_path_buf().join("b")).await,
         storage_fs(&dir.to_path_buf().join("s")).await,
+        storage_fs(&dir.to_path_buf().join("b")).await,
         keypair.public, Some(keypair.secret))
         .await.unwrap();
 
@@ -156,9 +150,8 @@ pub async fn core_disk_persists() {
     let keypair = generate_keypair();
     let keypair2 = copy_keypair(&keypair);
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("d")).await,
-        storage_fs(&dir.to_path_buf().join("b")).await,
         storage_fs(&dir.to_path_buf().join("s")).await,
+        storage_fs(&dir.to_path_buf().join("b")).await,
         keypair.public, Some(keypair.secret))
         .await.unwrap();
 
@@ -166,9 +159,8 @@ pub async fn core_disk_persists() {
     core.append(b"this is datacore", None).await.unwrap();
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("d")).await,
-        storage_fs(&dir.to_path_buf().join("b")).await,
         storage_fs(&dir.to_path_buf().join("s")).await,
+        storage_fs(&dir.to_path_buf().join("b")).await,
         keypair2.public, Some(keypair2.secret))
         .await.unwrap();
 

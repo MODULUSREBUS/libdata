@@ -22,7 +22,6 @@
 //! let mut core = Core::new(
 //!     IndexAccessMemory::new(),
 //!     IndexAccessMemory::new(),
-//!     IndexAccessMemory::new(),
 //!     keypair.public, Some(keypair.secret)
 //!     ).await?;
 //!
@@ -41,9 +40,8 @@
 //! ```
 
 mod block;
-mod store_data;
+mod store;
 mod store_blocks;
-mod store_state;
 mod merkle_tree_stream;
 mod keys;
 mod hash;

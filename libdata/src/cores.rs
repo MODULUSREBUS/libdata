@@ -13,20 +13,18 @@ type PublicKeyBytes = [u8; 32];
 /// [Cores] is a container for storing and quickly accessing multiple [Core]s.
 ///
 /// Stored [Core]s can be accessed by [PublicKey] or [DiscoveryKey].
-pub struct Cores<D, B, M>
+pub struct Cores<T, B>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
     B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
-    by_public:    HashMap<PublicKeyBytes, Arc<Mutex<Core<D, B, M>>>>,
-    by_discovery: HashMap<DiscoveryKey,  Weak<Mutex<Core<D, B, M>>>>,
+    by_public:    HashMap<PublicKeyBytes, Arc<Mutex<Core<T, B>>>>,
+    by_discovery: HashMap<DiscoveryKey,  Weak<Mutex<Core<T, B>>>>,
 }
-impl<D, B, M> Default for Cores<D, B, M>
+impl<T, B> Default for Cores<T, B>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
     B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     fn default() -> Self {
         Self {
@@ -35,15 +33,14 @@ where
         }
     }
 }
-impl<D, B, M> Cores<D, B, M>
+impl<T, B> Cores<T, B>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
     B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     /// Insert a new [Core].
     #[inline]
-    pub fn insert(&mut self, core: Core<D, B, M>)
+    pub fn insert(&mut self, core: Core<T, B>)
     {
         let public = *core.public_key();
         let core = Arc::new(Mutex::new(core));
@@ -51,7 +48,7 @@ where
         self.put(&public, core);
     }
     /// Put a [Arc<Mutex<Core>>] under [PublicKey].
-    pub fn put(&mut self, public: &PublicKey, core: Arc<Mutex<Core<D, B, M>>>)
+    pub fn put(&mut self, public: &PublicKey, core: Arc<Mutex<Core<T, B>>>)
     {
         let public = public.to_bytes();
         let discovery = discovery_key(&public);
@@ -63,7 +60,7 @@ where
     /// Try getting a [Core] by [PublicKey].
     #[inline]
     pub fn get_by_public(&self, key: &PublicKey)
-        -> Option<Arc<Mutex<Core<D, B, M>>>>
+        -> Option<Arc<Mutex<Core<T, B>>>>
     {
         self.by_public.get(&key.to_bytes())
             .map(Arc::clone)
@@ -72,7 +69,7 @@ where
     /// Try getting a [Core] by [DiscoveryKey].
     #[inline]
     pub fn get_by_discovery(&self, key: &DiscoveryKey)
-        -> Option<Arc<Mutex<Core<D, B, M>>>>
+        -> Option<Arc<Mutex<Core<T, B>>>>
     {
         self.by_discovery.get(key)
             .and_then(|weak| weak.upgrade())
@@ -113,7 +110,7 @@ where
     /// Access the contained [Core]s.
     #[inline]
     pub fn entries(&self)
-        ->  Vec<(PublicKey, Arc<Mutex<Core<D, B, M>>>)>
+        ->  Vec<(PublicKey, Arc<Mutex<Core<T, B>>>)>
     {
         self.by_public
             .iter()

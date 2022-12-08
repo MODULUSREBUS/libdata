@@ -13,8 +13,7 @@ use libdata::replication::{
     CoreReplica, Duplex, Replication, Options, ReplicationHandle,
 };
 
-type CoreIAM =
-    Core<IndexAccessMemory, IndexAccessMemory, IndexAccessMemory>;
+type CoreIAM = Core<IndexAccessMemory, IndexAccessMemory>;
 
 pub fn storage_memory() -> IndexAccessMemory {
     IndexAccessMemory::new()
@@ -24,13 +23,11 @@ async fn new_core() -> Result<CoreIAM> {
     Core::new(
         storage_memory(),
         storage_memory(),
-        storage_memory(),
         keypair.public, Some(keypair.secret))
         .await
 }
 async fn new_replica(key: PublicKey) -> Result<CoreIAM> {
     Core::new(
-        storage_memory(),
         storage_memory(),
         storage_memory(),
         key, None)

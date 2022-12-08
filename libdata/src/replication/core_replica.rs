@@ -11,24 +11,22 @@ use crate::replication::{ReplicaTrait, Request, Data, DataOrRequest};
 /// for [Core] over [Replication].
 ///
 /// [Replication]: super::Replication
-pub struct CoreReplica<D, B, M>
+pub struct CoreReplica<T, B>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
     B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
-    core: Arc<Mutex<Core<D, B, M>>>,
+    core: Arc<Mutex<Core<T, B>>>,
     remote_index: Option<u32>,
 }
 
-impl<D, B, M> CoreReplica<D, B, M>
+impl<T, B> CoreReplica<T, B>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
     B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     /// Create a new [CoreReplica].
-    pub fn new(core: Arc<Mutex<Core<D, B, M>>>) -> Self {
+    pub fn new(core: Arc<Mutex<Core<T, B>>>) -> Self {
         Self {
             core,
             remote_index: None,
@@ -45,11 +43,10 @@ where
     }
 }
 #[async_trait]
-impl<D, B, M> ReplicaTrait for CoreReplica<D, B, M>
+impl<T, B> ReplicaTrait for CoreReplica<T, B>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
     B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    M: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     async fn on_open(&mut self) -> Result<Option<Request>> {
         let core = self.core.lock().await;

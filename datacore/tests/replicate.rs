@@ -39,15 +39,13 @@ pub async fn replicate_manual() {
     let keypair3 = copy_keypair(&keypair);
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("data")).await,
+        storage_fs(&dir.to_path_buf().join("store")).await,
         storage_fs(&dir.to_path_buf().join("blocks")).await,
-        storage_fs(&dir.to_path_buf().join("merkle")).await,
         keypair.public, Some(keypair.secret))
         .await.unwrap();
     let mut replica = Core::new(
-        storage_fs(&dir2.to_path_buf().join("data")).await,
+        storage_fs(&dir2.to_path_buf().join("store")).await,
         storage_fs(&dir2.to_path_buf().join("blocks")).await,
-        storage_fs(&dir2.to_path_buf().join("merkle")).await,
         keypair2.public, Some(keypair2.secret))
         .await.unwrap();
 
@@ -76,13 +74,11 @@ pub async fn replicate_manual() {
     replica.append(data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
 
-    assert_eq!(read_bytes(&dir2, "data/0"), read_bytes(&dir, "data/0"));
-    assert_eq!(read_bytes(&dir2, "data/1"), read_bytes(&dir, "data/1"));
-    assert_eq!(read_bytes(&dir2, "blocks/0"), read_bytes(&dir, "blocks/0"));
+    assert_eq!(read_bytes(&dir2, "store/0"), read_bytes(&dir, "store/0"));
+    assert_eq!(read_bytes(&dir2, "store/1"), read_bytes(&dir, "store/1"));
+    assert_eq!(read_bytes(&dir2, "store/2"), read_bytes(&dir, "store/2"));
     assert_eq!(read_bytes(&dir2, "blocks/1"), read_bytes(&dir, "blocks/1"));
-    assert_eq!(
-        read_bytes(&dir2, "merkle/state"),
-        read_bytes(&dir, "merkle/state"));
+    assert_eq!(read_bytes(&dir2, "blocks/2"), read_bytes(&dir, "blocks/2"));
 }
 
 #[test]
@@ -94,15 +90,13 @@ pub async fn replicate_manual_no_secret_key() {
     let keypair3 = copy_keypair(&keypair);
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("data")).await,
+        storage_fs(&dir.to_path_buf().join("store")).await,
         storage_fs(&dir.to_path_buf().join("blocks")).await,
-        storage_fs(&dir.to_path_buf().join("merkle")).await,
         keypair.public, Some(keypair.secret))
         .await.unwrap();
     let mut replica = Core::new(
-        storage_fs(&dir2.to_path_buf().join("data")).await,
+        storage_fs(&dir2.to_path_buf().join("store")).await,
         storage_fs(&dir2.to_path_buf().join("blocks")).await,
-        storage_fs(&dir2.to_path_buf().join("merkle")).await,
         keypair2.public, Some(keypair2.secret))
         .await.unwrap();
 
@@ -128,13 +122,11 @@ pub async fn replicate_manual_no_secret_key() {
     replica.append(data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
 
-    assert_eq!(read_bytes(&dir2, "data/0"), read_bytes(&dir, "data/0"));
-    assert_eq!(read_bytes(&dir2, "data/1"), read_bytes(&dir, "data/1"));
-    assert_eq!(read_bytes(&dir2, "blocks/0"), read_bytes(&dir, "blocks/0"));
+    assert_eq!(read_bytes(&dir2, "store/0"), read_bytes(&dir, "store/0"));
+    assert_eq!(read_bytes(&dir2, "store/1"), read_bytes(&dir, "store/1"));
+    assert_eq!(read_bytes(&dir2, "store/2"), read_bytes(&dir, "store/2"));
     assert_eq!(read_bytes(&dir2, "blocks/1"), read_bytes(&dir, "blocks/1"));
-    assert_eq!(
-        read_bytes(&dir2, "merkle/state"),
-        read_bytes(&dir, "merkle/state"));
+    assert_eq!(read_bytes(&dir2, "blocks/2"), read_bytes(&dir, "blocks/2"));
 }
 
 #[test]
@@ -145,15 +137,13 @@ pub async fn replicate_signatures_no_secret_key() {
     let keypair2 = copy_keypair(&keypair);
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("data")).await,
+        storage_fs(&dir.to_path_buf().join("store")).await,
         storage_fs(&dir.to_path_buf().join("blocks")).await,
-        storage_fs(&dir.to_path_buf().join("merkle")).await,
         keypair.public, Some(keypair.secret))
         .await.unwrap();
     let mut replica = Core::new(
-        storage_fs(&dir2.to_path_buf().join("data")).await,
+        storage_fs(&dir2.to_path_buf().join("store")).await,
         storage_fs(&dir2.to_path_buf().join("blocks")).await,
-        storage_fs(&dir2.to_path_buf().join("merkle")).await,
         keypair2.public, Some(keypair2.secret))
         .await.unwrap();
 
@@ -170,13 +160,11 @@ pub async fn replicate_signatures_no_secret_key() {
     replica.append(&data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
 
-    assert_eq!(read_bytes(&dir2, "data/0"), read_bytes(&dir, "data/0"));
-    assert_eq!(read_bytes(&dir2, "data/1"), read_bytes(&dir, "data/1"));
-    assert_eq!(read_bytes(&dir2, "blocks/0"), read_bytes(&dir, "blocks/0"));
+    assert_eq!(read_bytes(&dir2, "store/0"), read_bytes(&dir, "store/0"));
+    assert_eq!(read_bytes(&dir2, "store/1"), read_bytes(&dir, "store/1"));
+    assert_eq!(read_bytes(&dir2, "store/2"), read_bytes(&dir, "store/2"));
     assert_eq!(read_bytes(&dir2, "blocks/1"), read_bytes(&dir, "blocks/1"));
-    assert_eq!(
-        read_bytes(&dir2, "merkle/state"),
-        read_bytes(&dir, "merkle/state"));
+    assert_eq!(read_bytes(&dir2, "blocks/2"), read_bytes(&dir, "blocks/2"));
 }
 
 #[test]
@@ -187,15 +175,13 @@ pub async fn replicate_then_append() {
     let keypair2 = copy_keypair(&keypair);
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("data")).await,
+        storage_fs(&dir.to_path_buf().join("store")).await,
         storage_fs(&dir.to_path_buf().join("blocks")).await,
-        storage_fs(&dir.to_path_buf().join("merkle")).await,
         keypair.public, Some(keypair.secret))
         .await.unwrap();
     let mut replica = Core::new(
-        storage_fs(&dir2.to_path_buf().join("data")).await,
+        storage_fs(&dir2.to_path_buf().join("store")).await,
         storage_fs(&dir2.to_path_buf().join("blocks")).await,
-        storage_fs(&dir2.to_path_buf().join("merkle")).await,
         keypair2.public, Some(keypair2.secret))
         .await.unwrap();
 
@@ -217,15 +203,13 @@ pub async fn replicate_then_append() {
     replica.append(data3, None).await.unwrap();
     assert_eq!(replica.len(), 3);
 
-    assert_eq!(read_bytes(&dir2, "data/0"), read_bytes(&dir, "data/0"));
-    assert_eq!(read_bytes(&dir2, "data/1"), read_bytes(&dir, "data/1"));
-    assert_eq!(read_bytes(&dir2, "data/2"), read_bytes(&dir, "data/2"));
-    assert_eq!(read_bytes(&dir2, "blocks/0"), read_bytes(&dir, "blocks/0"));
+    assert_eq!(read_bytes(&dir2, "store/0"), read_bytes(&dir, "store/0"));
+    assert_eq!(read_bytes(&dir2, "store/1"), read_bytes(&dir, "store/1"));
+    assert_eq!(read_bytes(&dir2, "store/2"), read_bytes(&dir, "store/2"));
+    assert_eq!(read_bytes(&dir2, "store/3"), read_bytes(&dir, "store/3"));
     assert_eq!(read_bytes(&dir2, "blocks/1"), read_bytes(&dir, "blocks/1"));
     assert_eq!(read_bytes(&dir2, "blocks/2"), read_bytes(&dir, "blocks/2"));
-    assert_eq!(
-        read_bytes(&dir2, "merkle/state"),
-        read_bytes(&dir, "merkle/state"));
+    assert_eq!(read_bytes(&dir2, "blocks/3"), read_bytes(&dir, "blocks/3"));
 }
 
 #[test]
@@ -236,15 +220,13 @@ pub async fn replicate_fail_verify_then_append() {
     let keypair2 = copy_keypair(&keypair);
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("data")).await,
+        storage_fs(&dir.to_path_buf().join("store")).await,
         storage_fs(&dir.to_path_buf().join("blocks")).await,
-        storage_fs(&dir.to_path_buf().join("merkle")).await,
         keypair.public, Some(keypair.secret))
         .await.unwrap();
     let mut replica = Core::new(
-        storage_fs(&dir2.to_path_buf().join("data")).await,
+        storage_fs(&dir2.to_path_buf().join("store")).await,
         storage_fs(&dir2.to_path_buf().join("blocks")).await,
-        storage_fs(&dir2.to_path_buf().join("merkle")).await,
         keypair2.public, Some(keypair2.secret))
         .await.unwrap();
 
@@ -278,13 +260,11 @@ pub async fn replicate_fail_verify_then_append() {
     replica.append(data3, None).await.unwrap();
     assert_eq!(replica.len(), 3);
 
-    assert_eq!(read_bytes(&dir2, "data/0"), read_bytes(&dir, "data/0"));
-    assert_eq!(read_bytes(&dir2, "data/1"), read_bytes(&dir, "data/1"));
-    assert_eq!(read_bytes(&dir2, "data/2"), read_bytes(&dir, "data/2"));
-    assert_eq!(read_bytes(&dir2, "blocks/0"), read_bytes(&dir, "blocks/0"));
+    assert_eq!(read_bytes(&dir2, "store/0"), read_bytes(&dir, "store/0"));
+    assert_eq!(read_bytes(&dir2, "store/1"), read_bytes(&dir, "store/1"));
+    assert_eq!(read_bytes(&dir2, "store/2"), read_bytes(&dir, "store/2"));
+    assert_eq!(read_bytes(&dir2, "store/3"), read_bytes(&dir, "store/3"));
     assert_eq!(read_bytes(&dir2, "blocks/1"), read_bytes(&dir, "blocks/1"));
     assert_eq!(read_bytes(&dir2, "blocks/2"), read_bytes(&dir, "blocks/2"));
-    assert_eq!(
-        read_bytes(&dir2, "merkle/state"),
-        read_bytes(&dir, "merkle/state"));
+    assert_eq!(read_bytes(&dir2, "blocks/3"), read_bytes(&dir, "blocks/3"));
 }

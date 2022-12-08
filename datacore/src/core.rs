@@ -5,9 +5,8 @@ use anyhow::{Result, ensure, bail};
 use std::error::Error;
 use futures_lite::future::zip;
 
-use crate::store_data::StoreData;
+use crate::store::Store;
 use crate::store_blocks::StoreBlocks;
-use crate::store_state::StoreState;
 use crate::merkle::{Merkle, NodeTrait};
 use crate::{
     Block, BlockSignature, Hash, IndexAccess,
@@ -15,7 +14,7 @@ use crate::{
 };
 
 /// Maximum number of blocks of data in a `Core`.
-pub const MAX_CORE_LENGTH: usize = u32::MAX as usize;
+pub const MAX_CORE_LENGTH: usize = (u32::MAX - 1) as usize;
 /// Maximum size of a single block of data in a `Core`.
 pub const MAX_BLOCK_SIZE: usize = u32::MAX as usize;
 
@@ -34,10 +33,9 @@ pub const MAX_BLOCK_SIZE: usize = u32::MAX as usize;
 /// [SecretKey]: ed25519_dalek::SecretKey
 /// [PublicKey]: ed25519_dalek::PublicKey
 /// [RandomAccess]: random_access_storage::RandomAccess
-pub struct Core<D, B, S> {
-    data: StoreData<D>,
+pub struct Core<T, B> {
+    store: Store<T>,
     blocks: StoreBlocks<B>,
-    state: StoreState<S>,
 
     merkle: Merkle,
     public_key: PublicKey,
@@ -46,7 +44,7 @@ pub struct Core<D, B, S> {
     length: u32,
     byte_length: u64,
 }
-impl<D, B, S> Core<D, B, S> {
+impl<D, B> Core<D, B> {
     /// Get the number of entries in the `Core`.
     #[inline]
     pub fn len(&self) -> u32 {
@@ -66,26 +64,23 @@ impl<D, B, S> Core<D, B, S> {
         &self.secret_key
     }
 }
-impl<D, B, S> Core<D, B, S>
+impl<D, B> Core<D, B>
 where
     D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
     B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    S: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
 {
     /// Create a new instance with a custom storage backend.
     pub async fn new(
-        data: D,
+        store: D,
         blocks: B,
-        state: S,
         public_key: PublicKey,
         secret_key: Option<SecretKey>
         ) -> Result<Self>
     {
-        let data = StoreData::new(data);
+        let mut store = Store::new(store);
         let mut blocks = StoreBlocks::new(blocks);
-        let mut state = StoreState::new(state);
 
-        let merkle = state.read().await?;
+        let merkle = store.read_merkle().await?;
         let length = merkle.blocks() as u32;
         let byte_length = match length {
             0 => 0,
@@ -96,9 +91,8 @@ where
         };
 
         Ok(Self {
-            data,
+            store,
             blocks,
-            state,
             merkle,
             public_key,
             secret_key,
@@ -152,10 +146,10 @@ where
             self.byte_length, data_length as u32, signature);
 
         let (d, b) = zip(
-            self.data.write(index, data),
+            self.store.write(index, data),
             self.blocks.write(index, &block))
             .await; d?; b?;
-        self.state.write(&self.merkle).await?;
+        self.store.write_merkle(&self.merkle).await?;
         self.byte_length += data_length as u64;
         self.length += 1;
 
@@ -184,7 +178,7 @@ where
             return Ok(None)
         }
         let block = self.blocks.read(index).await?;
-        let data = self.data.read(index).await?;
+        let data = self.store.read(index).await?;
         Ok(Some((data, block.signature())))
     }
 }
@@ -205,9 +199,13 @@ fn hash_merkle(merkle: &Merkle) -> Hash {
 mod tests {
     use super::*;
 
+    /// Block 0 is for merkle state.
+    /// MAX_CORE_LENGTH blocks can be written to a core.
+    /// MAX_BLOCK_SIZE is the max byte length of a single block.
+    /// Total byte length of a core has to fit in a [u64].
     #[test]
     pub fn max_sizes_fit() {
-        let max_length = MAX_CORE_LENGTH * MAX_BLOCK_SIZE;
+        let max_length = (1 + MAX_CORE_LENGTH) * MAX_BLOCK_SIZE;
         assert!(max_length <= u64::MAX as usize);
     }
 }
