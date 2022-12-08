@@ -1,6 +1,3 @@
-mod common;
-use common::{copy_keypair, storage_fs};
-
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -8,9 +5,10 @@ use tempfile;
 use tokio::test;
 
 use datacore::{
-    generate_keypair, sign, verify, BlockSignature, Core, Hash, Merkle, NodeTrait, Signature,
-    SIGNATURE_LENGTH,
+    generate_keypair, sign, verify, BlockSignature, Core, Hash, Keypair, Merkle, NodeTrait,
+    Signature, SIGNATURE_LENGTH,
 };
+use index_access_fs::IndexAccessFs;
 
 fn read_bytes(dir: &Path, s: &str) -> Vec<u8> {
     let mut f = File::open(dir.join(s)).unwrap();
@@ -31,20 +29,18 @@ pub async fn replicate_manual() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
     let keypair = generate_keypair();
-    let keypair2 = copy_keypair(&keypair);
-    let keypair3 = copy_keypair(&keypair);
+    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
+    let keypair3 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("store")).await,
-        storage_fs(&dir.to_path_buf().join("blocks")).await,
+        IndexAccessFs::new(&dir).await.unwrap(),
         keypair.public,
         Some(keypair.secret),
     )
     .await
     .unwrap();
     let mut replica = Core::new(
-        storage_fs(&dir2.to_path_buf().join("store")).await,
-        storage_fs(&dir2.to_path_buf().join("blocks")).await,
+        IndexAccessFs::new(&dir2).await.unwrap(),
         keypair2.public,
         Some(keypair2.secret),
     )
@@ -77,11 +73,9 @@ pub async fn replicate_manual() {
     replica.append(data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
 
-    assert_eq!(read_bytes(&dir2, "store/0"), read_bytes(&dir, "store/0"));
-    assert_eq!(read_bytes(&dir2, "store/1"), read_bytes(&dir, "store/1"));
-    assert_eq!(read_bytes(&dir2, "store/2"), read_bytes(&dir, "store/2"));
-    assert_eq!(read_bytes(&dir2, "blocks/1"), read_bytes(&dir, "blocks/1"));
-    assert_eq!(read_bytes(&dir2, "blocks/2"), read_bytes(&dir, "blocks/2"));
+    assert_eq!(read_bytes(&dir2, "0"), read_bytes(&dir, "0"));
+    assert_eq!(read_bytes(&dir2, "1"), read_bytes(&dir, "1"));
+    assert_eq!(read_bytes(&dir2, "2"), read_bytes(&dir, "2"));
 }
 
 #[test]
@@ -89,20 +83,18 @@ pub async fn replicate_manual_no_secret_key() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
     let keypair = generate_keypair();
-    let keypair2 = copy_keypair(&keypair);
-    let keypair3 = copy_keypair(&keypair);
+    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
+    let keypair3 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("store")).await,
-        storage_fs(&dir.to_path_buf().join("blocks")).await,
+        IndexAccessFs::new(&dir).await.unwrap(),
         keypair.public,
         Some(keypair.secret),
     )
     .await
     .unwrap();
     let mut replica = Core::new(
-        storage_fs(&dir2.to_path_buf().join("store")).await,
-        storage_fs(&dir2.to_path_buf().join("blocks")).await,
+        IndexAccessFs::new(&dir2).await.unwrap(),
         keypair2.public,
         Some(keypair2.secret),
     )
@@ -133,11 +125,9 @@ pub async fn replicate_manual_no_secret_key() {
     replica.append(data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
 
-    assert_eq!(read_bytes(&dir2, "store/0"), read_bytes(&dir, "store/0"));
-    assert_eq!(read_bytes(&dir2, "store/1"), read_bytes(&dir, "store/1"));
-    assert_eq!(read_bytes(&dir2, "store/2"), read_bytes(&dir, "store/2"));
-    assert_eq!(read_bytes(&dir2, "blocks/1"), read_bytes(&dir, "blocks/1"));
-    assert_eq!(read_bytes(&dir2, "blocks/2"), read_bytes(&dir, "blocks/2"));
+    assert_eq!(read_bytes(&dir2, "0"), read_bytes(&dir, "0"));
+    assert_eq!(read_bytes(&dir2, "1"), read_bytes(&dir, "1"));
+    assert_eq!(read_bytes(&dir2, "2"), read_bytes(&dir, "2"));
 }
 
 #[test]
@@ -145,19 +135,17 @@ pub async fn replicate_signatures_no_secret_key() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
     let keypair = generate_keypair();
-    let keypair2 = copy_keypair(&keypair);
+    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("store")).await,
-        storage_fs(&dir.to_path_buf().join("blocks")).await,
+        IndexAccessFs::new(&dir).await.unwrap(),
         keypair.public,
         Some(keypair.secret),
     )
     .await
     .unwrap();
     let mut replica = Core::new(
-        storage_fs(&dir2.to_path_buf().join("store")).await,
-        storage_fs(&dir2.to_path_buf().join("blocks")).await,
+        IndexAccessFs::new(&dir2).await.unwrap(),
         keypair2.public,
         Some(keypair2.secret),
     )
@@ -177,11 +165,9 @@ pub async fn replicate_signatures_no_secret_key() {
     replica.append(&data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
 
-    assert_eq!(read_bytes(&dir2, "store/0"), read_bytes(&dir, "store/0"));
-    assert_eq!(read_bytes(&dir2, "store/1"), read_bytes(&dir, "store/1"));
-    assert_eq!(read_bytes(&dir2, "store/2"), read_bytes(&dir, "store/2"));
-    assert_eq!(read_bytes(&dir2, "blocks/1"), read_bytes(&dir, "blocks/1"));
-    assert_eq!(read_bytes(&dir2, "blocks/2"), read_bytes(&dir, "blocks/2"));
+    assert_eq!(read_bytes(&dir2, "0"), read_bytes(&dir, "0"));
+    assert_eq!(read_bytes(&dir2, "1"), read_bytes(&dir, "1"));
+    assert_eq!(read_bytes(&dir2, "2"), read_bytes(&dir, "2"));
 }
 
 #[test]
@@ -189,19 +175,17 @@ pub async fn replicate_then_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
     let keypair = generate_keypair();
-    let keypair2 = copy_keypair(&keypair);
+    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("store")).await,
-        storage_fs(&dir.to_path_buf().join("blocks")).await,
+        IndexAccessFs::new(&dir).await.unwrap(),
         keypair.public,
         Some(keypair.secret),
     )
     .await
     .unwrap();
     let mut replica = Core::new(
-        storage_fs(&dir2.to_path_buf().join("store")).await,
-        storage_fs(&dir2.to_path_buf().join("blocks")).await,
+        IndexAccessFs::new(&dir2).await.unwrap(),
         keypair2.public,
         Some(keypair2.secret),
     )
@@ -226,13 +210,10 @@ pub async fn replicate_then_append() {
     replica.append(data3, None).await.unwrap();
     assert_eq!(replica.len(), 3);
 
-    assert_eq!(read_bytes(&dir2, "store/0"), read_bytes(&dir, "store/0"));
-    assert_eq!(read_bytes(&dir2, "store/1"), read_bytes(&dir, "store/1"));
-    assert_eq!(read_bytes(&dir2, "store/2"), read_bytes(&dir, "store/2"));
-    assert_eq!(read_bytes(&dir2, "store/3"), read_bytes(&dir, "store/3"));
-    assert_eq!(read_bytes(&dir2, "blocks/1"), read_bytes(&dir, "blocks/1"));
-    assert_eq!(read_bytes(&dir2, "blocks/2"), read_bytes(&dir, "blocks/2"));
-    assert_eq!(read_bytes(&dir2, "blocks/3"), read_bytes(&dir, "blocks/3"));
+    assert_eq!(read_bytes(&dir2, "0"), read_bytes(&dir, "0"));
+    assert_eq!(read_bytes(&dir2, "1"), read_bytes(&dir, "1"));
+    assert_eq!(read_bytes(&dir2, "2"), read_bytes(&dir, "2"));
+    assert_eq!(read_bytes(&dir2, "3"), read_bytes(&dir, "3"));
 }
 
 #[test]
@@ -240,19 +221,17 @@ pub async fn replicate_fail_verify_then_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
     let keypair = generate_keypair();
-    let keypair2 = copy_keypair(&keypair);
+    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("store")).await,
-        storage_fs(&dir.to_path_buf().join("blocks")).await,
+        IndexAccessFs::new(&dir).await.unwrap(),
         keypair.public,
         Some(keypair.secret),
     )
     .await
     .unwrap();
     let mut replica = Core::new(
-        storage_fs(&dir2.to_path_buf().join("store")).await,
-        storage_fs(&dir2.to_path_buf().join("blocks")).await,
+        IndexAccessFs::new(&dir2).await.unwrap(),
         keypair2.public,
         Some(keypair2.secret),
     )
@@ -301,11 +280,6 @@ pub async fn replicate_fail_verify_then_append() {
     replica.append(data3, None).await.unwrap();
     assert_eq!(replica.len(), 3);
 
-    assert_eq!(read_bytes(&dir2, "store/0"), read_bytes(&dir, "store/0"));
-    assert_eq!(read_bytes(&dir2, "store/1"), read_bytes(&dir, "store/1"));
-    assert_eq!(read_bytes(&dir2, "store/2"), read_bytes(&dir, "store/2"));
-    assert_eq!(read_bytes(&dir2, "store/3"), read_bytes(&dir, "store/3"));
-    assert_eq!(read_bytes(&dir2, "blocks/1"), read_bytes(&dir, "blocks/1"));
-    assert_eq!(read_bytes(&dir2, "blocks/2"), read_bytes(&dir, "blocks/2"));
-    assert_eq!(read_bytes(&dir2, "blocks/3"), read_bytes(&dir, "blocks/3"));
+    assert_eq!(read_bytes(&dir2, "1"), read_bytes(&dir, "1"));
+    assert_eq!(read_bytes(&dir2, "2"), read_bytes(&dir, "2"));
 }

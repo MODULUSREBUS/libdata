@@ -30,36 +30,36 @@ impl Debug for Command {
 /// [Replication] handle.
 #[derive(Debug, Clone)]
 pub struct ReplicationHandle {
-    pub(crate) tx: UnboundedSender<Command>,
+    tx: UnboundedSender<Command>,
 }
 impl ReplicationHandle {
+    /// Create [ReplicationHandle].
+    pub fn new(tx: UnboundedSender<Command>) -> Self {
+        Self { tx }
+    }
+
     /// Open a new channel with [ReplicaTrait].
     pub fn open(&mut self, key: &PublicKey, replica: Box<dyn ReplicaTrait + Send>) -> Result<()> {
-        let cmd = Command::Open(*key, replica);
-        self.tx
-            .send(cmd)
-            .map_err(|_| anyhow!("Error sending command."))
+        self.send(Command::Open(*key, replica))
     }
 
     /// Reopen a replica.
     pub fn reopen(&mut self, key: &PublicKey) -> Result<()> {
-        let cmd = Command::ReOpen(discovery_key(key.as_bytes()));
-        self.tx
-            .send(cmd)
-            .map_err(|_| anyhow!("Error sending command."))
+        self.send(Command::ReOpen(discovery_key(key.as_bytes())))
     }
 
     /// Close a channel by [DiscoveryKey].
     pub fn close(&mut self, key: DiscoveryKey) -> Result<()> {
-        let cmd = Command::Close(key);
-        self.tx
-            .send(cmd)
-            .map_err(|_| anyhow!("Error sending command."))
+        self.send(Command::Close(key))
     }
 
     /// End the [Replication].
     pub fn quit(&mut self) -> Result<()> {
-        let cmd = Command::Quit();
+        self.send(Command::Quit())
+    }
+
+    #[inline]
+    fn send(&mut self, cmd: Command) -> Result<()> {
         self.tx
             .send(cmd)
             .map_err(|_| anyhow!("Error sending command."))

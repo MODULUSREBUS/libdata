@@ -12,7 +12,6 @@ async fn iter_simple() -> Result<()> {
     let keypair = generate_keypair();
     let mut core = Core::new(
         IndexAccessMemory::default(),
-        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -37,7 +36,6 @@ async fn iter_offset() -> Result<()> {
     let keypair = generate_keypair();
     let mut core = Core::new(
         IndexAccessMemory::default(),
-        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -60,7 +58,6 @@ async fn iter_offset() -> Result<()> {
 async fn iter_out_of_bounds() -> Result<()> {
     let keypair = generate_keypair();
     let mut core = Core::new(
-        IndexAccessMemory::default(),
         IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),

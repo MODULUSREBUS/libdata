@@ -1,12 +1,10 @@
 //! Main `Core` abstraction.
 //! Exposes an append-only, single-writer, secure log structure.
 
-use anyhow::{anyhow, bail, ensure, Result};
-use futures_lite::future::zip;
+use anyhow::{bail, ensure, Result};
 
 use crate::merkle::{Merkle, NodeTrait};
 use crate::store::Store;
-use crate::store_blocks::StoreBlocks;
 use crate::{sign, verify, Block, BlockSignature, Hash, IndexAccess, PublicKey, SecretKey};
 
 /// Maximum number of blocks of data in a `Core`.
@@ -29,9 +27,8 @@ pub const MAX_BLOCK_SIZE: usize = u32::MAX as usize;
 /// [SecretKey]: ed25519_dalek::SecretKey
 /// [PublicKey]: ed25519_dalek::PublicKey
 /// [RandomAccess]: random_access_storage::RandomAccess
-pub struct Core<T, B> {
+pub struct Core<T> {
     store: Store<T>,
-    blocks: StoreBlocks<B>,
 
     merkle: Merkle,
     public_key: PublicKey,
@@ -40,7 +37,7 @@ pub struct Core<T, B> {
     length: u32,
     byte_length: u64,
 }
-impl<D, B> Core<D, B> {
+impl<T> Core<T> {
     /// Get the number of entries in the `Core`.
     #[inline]
     pub fn len(&self) -> u32 {
@@ -60,31 +57,27 @@ impl<D, B> Core<D, B> {
         &self.secret_key
     }
 }
-impl<D, B> Core<D, B>
+impl<T> Core<T>
 where
-    D: IndexAccess + Send,
-    <D as IndexAccess>::Error: Into<anyhow::Error>,
-    B: IndexAccess + Send,
-    <B as IndexAccess>::Error: Into<anyhow::Error>,
+    T: IndexAccess + Send,
+    <T as IndexAccess>::Error: Into<anyhow::Error>,
 {
     /// Create a new instance with a custom storage backend.
     pub async fn new(
-        store: D,
-        blocks: B,
+        store: T,
         public_key: PublicKey,
         secret_key: Option<SecretKey>,
     ) -> Result<Self> {
         let mut store = Store::new(store);
-        let mut blocks = StoreBlocks::new(blocks);
 
         let merkle = store.read_merkle().await?;
         let length = merkle.blocks() as u32;
         let byte_length = match length {
             0 => 0,
             n => {
-                let block = blocks.read(n - 1).await?;
+                let block = store.read(n - 1).await?;
                 match block {
-                    Some(block) => block.offset() as u64 + block.length() as u64,
+                    Some((_, block)) => block.offset() as u64 + block.length() as u64,
                     None => bail!("Missing expected block."),
                 }
             }
@@ -92,7 +85,6 @@ where
 
         Ok(Self {
             store,
-            blocks,
             merkle,
             public_key,
             secret_key,
@@ -137,13 +129,7 @@ where
 
         let block = Block::new(self.byte_length, data_length as u32, signature);
 
-        let (d, b) = zip(
-            self.store.write(index, data),
-            self.blocks.write(index, &block),
-        )
-        .await;
-        d?;
-        b?;
+        self.store.write(index, data, &block).await?;
         self.store.write_merkle(&self.merkle).await?;
         self.byte_length += data_length as u64;
         self.length += 1;
@@ -168,9 +154,11 @@ where
         if index >= length {
             return Ok(None);
         }
-        let block = self.blocks.read(index).await?.ok_or(anyhow!("Missing expected block"))?;
-        let data = self.store.read(index).await?.ok_or(anyhow!("Missing expected data"))?;
-        Ok(Some((data, block.signature())))
+        Ok(self
+            .store
+            .read(index)
+            .await?
+            .map(|(data, block)| (data, block.signature())))
     }
 }
 

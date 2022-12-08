@@ -1,9 +1,9 @@
 ---
 source: datacore/tests/snapshots.rs
-expression: "read_bytes(&dir, \"blocks\")"
-
+expression: store
 ---
 [
+    97,
     0,
     0,
     0,
@@ -144,6 +144,7 @@ expression: "read_bytes(&dir, \"blocks\")"
     199,
     145,
     12,
+    98,
     1,
     0,
     0,
@@ -284,6 +285,7 @@ expression: "read_bytes(&dir, \"blocks\")"
     83,
     118,
     2,
+    99,
     2,
     0,
     0,
@@ -424,6 +426,7 @@ expression: "read_bytes(&dir, \"blocks\")"
     127,
     201,
     7,
+    100,
     3,
     0,
     0,
@@ -564,6 +567,7 @@ expression: "read_bytes(&dir, \"blocks\")"
     242,
     74,
     6,
+    101,
     4,
     0,
     0,
@@ -704,6 +708,7 @@ expression: "read_bytes(&dir, \"blocks\")"
     227,
     223,
     13,
+    102,
     5,
     0,
     0,

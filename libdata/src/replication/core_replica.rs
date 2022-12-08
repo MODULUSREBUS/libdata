@@ -10,14 +10,14 @@ use crate::{BlockSignature, Core, IndexAccess, Signature, MAX_CORE_LENGTH};
 /// for [Core] over [Replication].
 ///
 /// [Replication]: super::Replication
-pub struct CoreReplica<T, B> {
-    core: Arc<Mutex<Core<T, B>>>,
+pub struct CoreReplica<T> {
+    core: Arc<Mutex<Core<T>>>,
     remote_index: Option<u32>,
 }
 
-impl<T, B> CoreReplica<T, B> {
+impl<T> CoreReplica<T> {
     /// Create a new [CoreReplica].
-    pub fn new(core: Arc<Mutex<Core<T, B>>>) -> Self {
+    pub fn new(core: Arc<Mutex<Core<T>>>) -> Self {
         Self {
             core,
             remote_index: None,
@@ -34,12 +34,10 @@ impl<T, B> CoreReplica<T, B> {
     }
 }
 #[async_trait]
-impl<T, B> ReplicaTrait for CoreReplica<T, B>
+impl<T> ReplicaTrait for CoreReplica<T>
 where
     T: IndexAccess + Send,
     <T as IndexAccess>::Error: Into<anyhow::Error>,
-    B: IndexAccess + Send,
-    <B as IndexAccess>::Error: Into<anyhow::Error>,
 {
     async fn on_open(&mut self) -> Result<Option<Request>> {
         let core = self.core.lock().await;

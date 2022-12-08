@@ -21,20 +21,16 @@
 //! let keypair = generate_keypair();
 //! let mut core = Core::new(
 //!     IndexAccessMemory::default(),
-//!     IndexAccessMemory::default(),
-//!     keypair.public, Some(keypair.secret)
+//!     keypair.public,
+//!     Some(keypair.secret),
 //!     ).await?;
 //!
 //! core.append(b"hello", None).await?;
 //! core.append(b"world", None).await?;
 //!
 //! assert_eq!(core.len(), 2);
-//! assert_eq!(
-//!     core.get(0).await?.unwrap().0,
-//!     b"hello");
-//! assert_eq!(
-//!     core.get(1).await?.unwrap().0,
-//!     b"world");
+//! assert_eq!(core.get(0).await?.unwrap().0, b"hello");
+//! assert_eq!(core.get(1).await?.unwrap().0, b"world");
 //! # Ok(())
 //! # }
 //! ```
@@ -46,7 +42,6 @@ mod keys;
 mod merkle;
 mod merkle_tree_stream;
 mod store;
-mod store_blocks;
 
 pub use self::core::{Core, MAX_BLOCK_SIZE, MAX_CORE_LENGTH};
 pub use block::{Block, BlockSignature, Signature, SIGNATURE_LENGTH};

@@ -6,36 +6,25 @@ use crate::{discovery_key, Core, DiscoveryKey, IndexAccess, PublicKey};
 
 type PublicKeyBytes = [u8; 32];
 
+#[derive(Default)]
 /// [Cores] is a container for storing and quickly accessing multiple [Core]s.
 ///
 /// Stored [Core]s can be accessed by [PublicKey] or [DiscoveryKey].
-pub struct Cores<T, B> {
-    by_public: HashMap<PublicKeyBytes, Arc<Mutex<Core<T, B>>>>,
-    by_discovery: HashMap<DiscoveryKey, Weak<Mutex<Core<T, B>>>>,
+pub struct Cores<T> {
+    by_public: HashMap<PublicKeyBytes, Arc<Mutex<Core<T>>>>,
+    by_discovery: HashMap<DiscoveryKey, Weak<Mutex<Core<T>>>>,
 }
-impl<T, B> Default for Cores<T, B> {
-    fn default() -> Self {
-        Self {
-            by_public: HashMap::new(),
-            by_discovery: HashMap::new(),
-        }
-    }
-}
-impl<T, B> Cores<T, B>
-where
-    T: IndexAccess + Send,
-    B: IndexAccess + Send,
-{
+impl<T: IndexAccess + Send> Cores<T> {
     /// Insert a new [Core].
     #[inline]
-    pub fn insert(&mut self, core: Core<T, B>) {
+    pub fn insert(&mut self, core: Core<T>) {
         let public = *core.public_key();
         let core = Arc::new(Mutex::new(core));
 
         self.put(&public, core);
     }
     /// Put a [Arc<Mutex<Core>>] under [PublicKey].
-    pub fn put(&mut self, public: &PublicKey, core: Arc<Mutex<Core<T, B>>>) {
+    pub fn put(&mut self, public: &PublicKey, core: Arc<Mutex<Core<T>>>) {
         let public = public.to_bytes();
         let discovery = discovery_key(&public);
 
@@ -45,13 +34,13 @@ where
 
     /// Try getting a [Core] by [PublicKey].
     #[inline]
-    pub fn get_by_public(&self, key: &PublicKey) -> Option<Arc<Mutex<Core<T, B>>>> {
+    pub fn get_by_public(&self, key: &PublicKey) -> Option<Arc<Mutex<Core<T>>>> {
         self.by_public.get(&key.to_bytes()).map(Arc::clone)
     }
 
     /// Try getting a [Core] by [DiscoveryKey].
     #[inline]
-    pub fn get_by_discovery(&self, key: &DiscoveryKey) -> Option<Arc<Mutex<Core<T, B>>>> {
+    pub fn get_by_discovery(&self, key: &DiscoveryKey) -> Option<Arc<Mutex<Core<T>>>> {
         self.by_discovery.get(key).and_then(|weak| weak.upgrade())
     }
 
@@ -84,7 +73,7 @@ where
 
     /// Access the contained [Core]s.
     #[inline]
-    pub fn entries(&self) -> Vec<(PublicKey, Arc<Mutex<Core<T, B>>>)> {
+    pub fn entries(&self) -> Vec<(PublicKey, Arc<Mutex<Core<T>>>)> {
         self.by_public
             .iter()
             .map(|(bytes, core)| (PublicKey::from_bytes(bytes).unwrap(), Arc::clone(core)))

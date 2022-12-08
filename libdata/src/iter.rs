@@ -10,30 +10,24 @@ use tokio::sync::Mutex;
 use crate::{BlockSignature, Core, IndexAccess};
 
 /// Async [Stream] iterator over [Core].
-pub struct CoreIterator<T, B>
-where
-    T: Send,
-    B: Send,
-{
-    core: Arc<Mutex<Core<T, B>>>,
+pub struct CoreIterator<T> {
+    core: Arc<Mutex<Core<T>>>,
     task: Pin<Box<dyn Future<Output = (u32, Option<Vec<u8>>)>>>,
 }
-impl<T: 'static, B: 'static> CoreIterator<T, B>
+impl<T: 'static> CoreIterator<T>
 where
     T: IndexAccess + Send,
     <T as IndexAccess>::Error: Into<anyhow::Error>,
-    B: IndexAccess + Send,
-    <B as IndexAccess>::Error: Into<anyhow::Error>,
 {
     /// Create a new [CoreIterator].
-    pub fn new(core: Arc<Mutex<Core<T, B>>>, index: u32) -> Self {
+    pub fn new(core: Arc<Mutex<Core<T>>>, index: u32) -> Self {
         let task = Self::create_read_task(Arc::clone(&core), index);
         Self { core, task }
     }
 
     #[inline]
     fn create_read_task(
-        core: Arc<Mutex<Core<T, B>>>,
+        core: Arc<Mutex<Core<T>>>,
         index: u32,
     ) -> Pin<Box<dyn Future<Output = (u32, Option<Vec<u8>>)>>> {
         async move {
@@ -51,12 +45,10 @@ where
         .boxed()
     }
 }
-impl<T: 'static, B: 'static> Stream for CoreIterator<T, B>
+impl<T: 'static> Stream for CoreIterator<T>
 where
     T: IndexAccess + Send,
     <T as IndexAccess>::Error: Into<anyhow::Error>,
-    B: IndexAccess + Send,
-    <B as IndexAccess>::Error: Into<anyhow::Error>,
 {
     type Item = (u32, Vec<u8>);
 

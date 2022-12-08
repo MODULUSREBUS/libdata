@@ -1,8 +1,9 @@
 use anyhow::{anyhow, ensure, Result};
 use std::mem::size_of;
 
+use crate::block::BLOCK_LENGTH;
 use crate::merkle::NODE_SIZE;
-use crate::{IndexAccess, Merkle, Node};
+use crate::{Block, IndexAccess, Merkle, Node};
 
 const STATE_INDEX: u32 = 0;
 
@@ -24,17 +25,29 @@ where
 {
     /// Write data for a `Block`.
     #[inline]
-    pub async fn write(&mut self, index: u32, data: &[u8]) -> Result<()> {
+    pub async fn write(&mut self, index: u32, data: &[u8], block: &Block) -> Result<()> {
+        let mut bytes = Vec::with_capacity(data.len() + BLOCK_LENGTH);
+        bytes.extend_from_slice(data);
+        bytes.extend_from_slice(&block.to_bytes()?);
         self.store
-            .write(index + 1, data)
+            .write(index + 1, &bytes)
             .await
             .map_err(|e| anyhow!(e))
     }
 
     /// Read data for a `Block`.
     #[inline]
-    pub async fn read(&mut self, index: u32) -> Result<Option<Vec<u8>>> {
-        self.store.read(index + 1).await.map_err(|e| anyhow!(e))
+    pub async fn read(&mut self, index: u32) -> Result<Option<(Vec<u8>, Block)>> {
+        Ok(
+            match self.store.read(index + 1).await.map_err(|e| anyhow!(e))? {
+                None => None,
+                Some(mut raw) => {
+                    ensure!(raw.len() > BLOCK_LENGTH);
+                    let block = raw.split_off(raw.len() - BLOCK_LENGTH);
+                    Some((raw, Block::from_bytes(&block)?))
+                }
+            },
+        )
     }
 
     /// Write `Merkle` roots.
@@ -87,6 +100,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::block::{BlockSignature, Signature, SIGNATURE_LENGTH};
     use crate::hash::Hash;
     use index_access_memory::IndexAccessMemory;
 
@@ -100,9 +114,15 @@ mod tests {
     async fn data() -> Result<()> {
         let mut store = Store::new(IndexAccessMemory::default());
         let data = b"hello world";
-        store.write(0, data).await?;
-        let read = store.read(0).await?.unwrap();
-        assert_eq!(read, data);
+        let signature = BlockSignature::new(
+            Signature::from_bytes(&[2u8; SIGNATURE_LENGTH])?,
+            Signature::from_bytes(&[7u8; SIGNATURE_LENGTH])?,
+        );
+        let block = Block::new(1, 8, signature);
+        store.write(0, data, &block).await?;
+        let (data2, block2) = store.read(0).await?.unwrap();
+        assert_eq!(data2, data);
+        assert_eq!(block2, block);
         Ok(())
     }
 

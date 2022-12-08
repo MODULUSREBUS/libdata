@@ -1,10 +1,8 @@
-mod common;
-use common::storage_memory;
-
 use quickcheck::{Arbitrary, Gen};
 use quickcheck_async;
 
 use datacore::{generate_keypair, Core};
+use index_access_memory::IndexAccessMemory;
 
 #[derive(Clone, Debug)]
 enum Op {
@@ -39,8 +37,7 @@ impl Arbitrary for Op {
 async fn implementation_matches_model(ops: Vec<Op>) -> bool {
     let keypair = generate_keypair();
     let mut core = Core::new(
-        storage_memory(),
-        storage_memory(),
+        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )

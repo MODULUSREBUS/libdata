@@ -1,17 +1,15 @@
-mod common;
-use common::{copy_keypair, storage_fs, storage_memory};
-
 use tempfile;
 use tokio::test;
 
-use datacore::{generate_keypair, sign, BlockSignature, Core, Hash, Merkle, NodeTrait};
+use datacore::{generate_keypair, sign, BlockSignature, Core, Hash, Keypair, Merkle, NodeTrait};
+use index_access_fs::IndexAccessFs;
+use index_access_memory::IndexAccessMemory;
 
 #[test]
 pub async fn core_init() {
     let keypair = generate_keypair();
     let core = Core::new(
-        storage_memory(),
-        storage_memory(),
+        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -25,8 +23,7 @@ pub async fn core_init() {
 pub async fn core_append() {
     let keypair = generate_keypair();
     let mut core = Core::new(
-        storage_memory(),
-        storage_memory(),
+        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -55,10 +52,9 @@ pub async fn core_append() {
 #[test]
 pub async fn core_signatures() {
     let keypair = generate_keypair();
-    let keypair2 = copy_keypair(&keypair);
+    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
     let mut core = Core::new(
-        storage_memory(),
-        storage_memory(),
+        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -98,8 +94,7 @@ pub async fn core_signatures() {
 pub async fn core_get_head() {
     let keypair = generate_keypair();
     let mut core = Core::new(
-        storage_memory(),
-        storage_memory(),
+        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -131,7 +126,7 @@ pub async fn core_get_head() {
 #[test]
 pub async fn core_append_no_secret_key() {
     let keypair = generate_keypair();
-    let mut core = Core::new(storage_memory(), storage_memory(), keypair.public, None)
+    let mut core = Core::new(IndexAccessMemory::default(), keypair.public, None)
         .await
         .unwrap();
 
@@ -144,8 +139,7 @@ pub async fn core_disk_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let keypair = generate_keypair();
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("s")).await,
-        storage_fs(&dir.to_path_buf().join("b")).await,
+        IndexAccessFs::new(&dir).await.unwrap(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -170,10 +164,9 @@ pub async fn core_disk_append() {
 pub async fn core_disk_persists() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let keypair = generate_keypair();
-    let keypair2 = copy_keypair(&keypair);
+    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("s")).await,
-        storage_fs(&dir.to_path_buf().join("b")).await,
+        IndexAccessFs::new(&dir).await.unwrap(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -184,8 +177,7 @@ pub async fn core_disk_persists() {
     core.append(b"this is datacore", None).await.unwrap();
 
     let mut core = Core::new(
-        storage_fs(&dir.to_path_buf().join("s")).await,
-        storage_fs(&dir.to_path_buf().join("b")).await,
+        IndexAccessFs::new(&dir).await.unwrap(),
         keypair2.public,
         Some(keypair2.secret),
     )

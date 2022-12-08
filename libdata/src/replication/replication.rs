@@ -52,7 +52,7 @@ where
     /// Create `Replication` with [Options] and wait for protocol handshake.
     pub async fn with_options(stream: T, options: Options) -> Result<(Self, ReplicationHandle)> {
         let (tx, rx) = unbounded_channel();
-        let handle = ReplicationHandle { tx };
+        let handle = ReplicationHandle::new(tx);
 
         let handshake = new_protocol(stream, options);
         let protocol = handshake.handshake().await?;

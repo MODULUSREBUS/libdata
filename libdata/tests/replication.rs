@@ -11,21 +11,17 @@ use index_access_memory::IndexAccessMemory;
 use libdata::replication::{CoreReplica, Duplex, Options, Replication, ReplicationHandle};
 use libdata::{generate_keypair, Core, PublicKey};
 
-type CoreIAM = Core<IndexAccessMemory, IndexAccessMemory>;
-
-async fn new_core() -> Result<CoreIAM> {
+async fn new_core() -> Result<Core<IndexAccessMemory>> {
     let keypair = generate_keypair();
     Core::new(
-        IndexAccessMemory::default(),
         IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )
     .await
 }
-async fn new_replica(key: PublicKey) -> Result<CoreIAM> {
+async fn new_replica(key: PublicKey) -> Result<Core<IndexAccessMemory>> {
     Core::new(
-        IndexAccessMemory::default(),
         IndexAccessMemory::default(),
         key,
         None,

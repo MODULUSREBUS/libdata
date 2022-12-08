@@ -4,12 +4,9 @@ use tokio::test;
 use index_access_memory::IndexAccessMemory;
 use libdata::{discovery_key, generate_keypair, Core, Cores};
 
-type CoreIAM = Core<IndexAccessMemory, IndexAccessMemory>;
-
-async fn new_core() -> Result<CoreIAM> {
+async fn new_core() -> Result<Core<IndexAccessMemory>> {
     let keypair = generate_keypair();
     Core::new(
-        IndexAccessMemory::default(),
         IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
