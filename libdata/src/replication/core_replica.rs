@@ -1,11 +1,11 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use std::error::Error;
 use std::sync::Arc;
-use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::{IndexAccess, Core, BlockSignature, Signature, MAX_CORE_LENGTH};
-use crate::replication::{ReplicaTrait, Request, Data, DataOrRequest};
+use crate::replication::{Data, DataOrRequest, ReplicaTrait, Request};
+use crate::{BlockSignature, Core, IndexAccess, Signature, MAX_CORE_LENGTH};
 
 /// CoreReplica describes eager, full, and sequential synchronization logic
 /// for [Core] over [Replication].
@@ -36,7 +36,7 @@ where
     fn update_remote_index(&mut self, index: u32) {
         if let Some(old_index) = self.remote_index {
             if index <= old_index {
-                return
+                return;
             }
         }
         self.remote_index = Some(index);
@@ -50,14 +50,10 @@ where
 {
     async fn on_open(&mut self) -> Result<Option<Request>> {
         let core = self.core.lock().await;
-        let request = Request {
-            index: core.len(),
-        };
+        let request = Request { index: core.len() };
         Ok(Some(request))
     }
-    async fn on_request(&mut self, request: Request)
-        -> Result<Option<DataOrRequest>>
-    {
+    async fn on_request(&mut self, request: Request) -> Result<Option<DataOrRequest>> {
         self.update_remote_index(request.index);
 
         let mut core = self.core.lock().await;
@@ -71,44 +67,38 @@ where
                     tree_signature: signature.tree().to_bytes().to_vec(),
                 };
                 Some(DataOrRequest::Data(response))
-            },
+            }
             None => {
                 let index = core.len();
                 let remote_index = self.remote_index.unwrap_or(0);
                 if index as usize >= MAX_CORE_LENGTH || remote_index <= index {
                     None
-                }
-                else {
+                } else {
                     let response = Request { index };
                     Some(DataOrRequest::Request(response))
                 }
-            },
+            }
         })
     }
-    async fn on_data(&mut self, data: Data)
-        -> Result<Option<Request>>
-    {
+    async fn on_data(&mut self, data: Data) -> Result<Option<Request>> {
         let mut core = self.core.lock().await;
         let len = core.len();
         if data.index == len {
             let signature = BlockSignature::new(
                 Signature::from_bytes(&data.data_signature).unwrap(),
-                Signature::from_bytes(&data.tree_signature).unwrap());
+                Signature::from_bytes(&data.tree_signature).unwrap(),
+            );
             core.append(&data.data, Some(signature)).await?;
 
             if core.len() as usize >= MAX_CORE_LENGTH {
                 Ok(None)
-            }
-            else {
+            } else {
                 Ok(Some(Request {
                     index: data.index + 1,
                 }))
             }
-        }
-        else {
-            Ok(Some(Request {
-                index: len,
-            }))
+        } else {
+            Ok(Some(Request { index: len }))
         }
     }
     async fn on_close(&mut self) -> Result<()> {
@@ -117,7 +107,7 @@ where
             let len = core.len();
 
             if len < index {
-                return Err(anyhow!("Not synced; remote has more data."))
+                return Err(anyhow!("Not synced; remote has more data."));
             }
         }
         Ok(())

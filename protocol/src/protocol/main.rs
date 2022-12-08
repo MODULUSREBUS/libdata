@@ -1,18 +1,18 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use std::collections::VecDeque;
+use std::convert::TryInto;
+use std::io::{self, Error, ErrorKind};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 use tokio_stream::Stream;
-use std::task::{Context, Poll};
-use std::pin::Pin;
-use std::io::{self, Error, ErrorKind};
-use std::collections::VecDeque;
-use std::convert::TryInto;
 
-use crate::schema::*;
-use crate::message::{Frame, FrameType, ChannelMessage};
 use crate::channels::ChannelMap;
 use crate::io::IO;
-use crate::{noise, Key, DiscoveryKey, Message};
+use crate::message::{ChannelMessage, Frame, FrameType};
+use crate::schema::*;
+use crate::{noise, DiscoveryKey, Key, Message};
 
 use super::{Protocol, ProtocolStage};
 
@@ -99,8 +99,7 @@ where
         // If the channel was already opened from the remote end, verify,
         // and if verification is ok, push a channel open event.
         if channel_handle.is_connected() {
-            let (key, remote_capability) =
-                self.state.channels.prepare_to_verify(local_id)?;
+            let (key, remote_capability) = self.state.channels.prepare_to_verify(local_id)?;
             self.verify_remote_capability(remote_capability.cloned(), key)?;
             self.queue_event(Event::Open(discovery_key));
         }
@@ -112,15 +111,20 @@ where
             capability,
         });
         let channel_message = ChannelMessage::new(local_id as u64, message);
-        self.io.write_state.queue_frame(Frame::Message(channel_message));
+        self.io
+            .write_state
+            .queue_frame(Frame::Message(channel_message));
         Ok(())
     }
 
     /// Close a protocol channel.
     pub fn close(&mut self, discovery_key: DiscoveryKey) -> Result<()> {
-        self.send(&discovery_key, Message::Close(Close {
-            discovery_key: discovery_key.to_vec(),
-        }))
+        self.send(
+            &discovery_key,
+            Message::Close(Close {
+                discovery_key: discovery_key.to_vec(),
+            }),
+        )
     }
 
     /// Send a [Message] on a channel.
@@ -131,12 +135,10 @@ where
                 if channel.is_connected() {
                     let local_id = channel.local_id().unwrap();
                     let msg = ChannelMessage::new(local_id as u64, msg);
-                    self.state.outbound_tx
-                        .send(msg)
-                        .map_err(map_channel_err)?;
+                    self.state.outbound_tx.send(msg).map_err(map_channel_err)?;
                 }
                 Ok(())
-            },
+            }
         }
     }
     /// Send a [Message::Request] on a channel.
@@ -157,8 +159,7 @@ where
             match msg {
                 Some(frame) => match frame {
                     Frame::Message(msg) => self.on_inbound_message(msg)?,
-                    _ => unreachable!(
-                        "May not receive raw frames after handshake"),
+                    _ => unreachable!("May not receive raw frames after handshake"),
                 },
                 None => return Ok(()),
             };
@@ -176,7 +177,7 @@ where
                     self.io.write_state.queue_frame(frame);
                 }
                 Poll::Ready(None) => unreachable!("Channel closed before end"),
-                Poll::Pending => return Ok(())
+                Poll::Pending => return Ok(()),
             }
         }
     }
@@ -192,28 +193,26 @@ where
         }
     }
 
-    fn on_inbound_message(
-        &mut self,
-        channel_message: ChannelMessage,
-        ) -> Result<()>
-    {
+    fn on_inbound_message(&mut self, channel_message: ChannelMessage) -> Result<()> {
         let (remote_id, message) = channel_message.into_split();
         match remote_id {
             // Id 0 means stream-level
-            0 => {},
+            0 => {}
             // Any other Id is a regular channel message.
             _ => match message {
                 Message::Open(msg) => self.on_open(remote_id, msg)?,
                 Message::Close(msg) => self.on_close(remote_id, msg)?,
                 _ => {
                     // Emit [Event::Message].
-                    let discovery_key = self.state.channels
+                    let discovery_key = self
+                        .state
+                        .channels
                         .get_remote(remote_id as usize)
                         .map(|remote| remote.discovery_key());
                     if let Some(discovery_key) = discovery_key {
                         self.queue_event(Event::Message(*discovery_key, message));
                     }
-                },
+                }
             },
         }
         Ok(())
@@ -221,13 +220,14 @@ where
 
     fn on_open(&mut self, ch: u64, msg: Open) -> Result<()> {
         let discovery_key: DiscoveryKey = parse_key(&msg.discovery_key)?;
-        let channel_handle = self.state.channels
-            .attach_remote(discovery_key, ch as usize, msg.capability);
+        let channel_handle =
+            self.state
+                .channels
+                .attach_remote(discovery_key, ch as usize, msg.capability);
 
         if channel_handle.is_connected() {
             let local_id = channel_handle.local_id().unwrap();
-            let (key, remote_capability) =
-                self.state.channels.prepare_to_verify(local_id)?;
+            let (key, remote_capability) = self.state.channels.prepare_to_verify(local_id)?;
             self.verify_remote_capability(remote_capability.cloned(), key)?;
             self.queue_event(Event::Open(discovery_key));
         } else {
@@ -269,12 +269,7 @@ where
         }
     }
 
-    fn verify_remote_capability(
-        &self,
-        capability: Option<Vec<u8>>,
-        key: &[u8],
-        ) -> Result<()>
-    {
+    fn verify_remote_capability(&self, capability: Option<Vec<u8>>, key: &[u8]) -> Result<()> {
         match self.state.handshake.as_ref() {
             Some(handshake) => handshake
                 .verify_remote_capability(capability, key)
@@ -292,11 +287,7 @@ where
     T: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
     type Item = Result<Event>;
-    fn poll_next(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        ) -> Poll<Option<Self::Item>>
-    {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
 
         // Drain queued events first
@@ -320,8 +311,6 @@ where
 }
 
 fn parse_key(key: &[u8]) -> io::Result<[u8; 32]> {
-    key.try_into().map_err(
-        |_| io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "Key must be 32 bytes long"))
+    key.try_into()
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Key must be 32 bytes long"))
 }

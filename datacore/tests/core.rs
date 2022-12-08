@@ -1,13 +1,10 @@
 mod common;
-use common::{storage_memory, storage_fs, copy_keypair};
+use common::{copy_keypair, storage_fs, storage_memory};
 
-use tokio::test;
 use tempfile;
+use tokio::test;
 
-use datacore::{
-    Merkle, NodeTrait, Hash, BlockSignature, Core,
-    generate_keypair, sign,
-};
+use datacore::{generate_keypair, sign, BlockSignature, Core, Hash, Merkle, NodeTrait};
 
 #[test]
 pub async fn core_init() {
@@ -15,8 +12,11 @@ pub async fn core_init() {
     let core = Core::new(
         storage_memory(),
         storage_memory(),
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(core.len(), 0);
 }
@@ -27,8 +27,11 @@ pub async fn core_append() {
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
 
     core.append(br#"{"hello":"world"}"#, None).await.unwrap();
     core.append(br#"{"hello":"mundo"}"#, None).await.unwrap();
@@ -37,13 +40,16 @@ pub async fn core_append() {
     assert_eq!(core.len(), 3);
     assert_eq!(
         core.get(0).await.unwrap().map(first),
-        Some(br#"{"hello":"world"}"#.to_vec()));
+        Some(br#"{"hello":"world"}"#.to_vec())
+    );
     assert_eq!(
         core.get(1).await.unwrap().map(first),
-        Some(br#"{"hello":"mundo"}"#.to_vec()));
+        Some(br#"{"hello":"mundo"}"#.to_vec())
+    );
     assert_eq!(
         core.get(2).await.unwrap().map(first),
-        Some(br#"{"hello":"welt"}"#.to_vec()));
+        Some(br#"{"hello":"welt"}"#.to_vec())
+    );
 }
 
 #[test]
@@ -53,8 +59,11 @@ pub async fn core_signatures() {
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
 
     let data1 = b"hello world";
     let data2 = b"this is datacore";
@@ -66,19 +75,23 @@ pub async fn core_signatures() {
     merkle.next(Hash::from_leaf(data1), data1.len() as u64);
     let signature1 = BlockSignature::new(
         sign(&keypair2.public, &keypair2.secret, &Hash::from_leaf(data1)),
-        sign(&keypair2.public, &keypair2.secret, &hash_tree(&merkle)));
+        sign(&keypair2.public, &keypair2.secret, &hash_tree(&merkle)),
+    );
     merkle.next(Hash::from_leaf(data2), data2.len() as u64);
     let signature2 = BlockSignature::new(
         sign(&keypair2.public, &keypair2.secret, &Hash::from_leaf(data2)),
-        sign(&keypair2.public, &keypair2.secret, &hash_tree(&merkle)));
+        sign(&keypair2.public, &keypair2.secret, &hash_tree(&merkle)),
+    );
 
     assert_eq!(core.len(), 2);
     assert_eq!(
         core.get(0).await.unwrap(),
-        Some((data1.to_vec(), signature1)));
+        Some((data1.to_vec(), signature1))
+    );
     assert_eq!(
         core.get(1).await.unwrap(),
-        Some((data2.to_vec(), signature2)));
+        Some((data2.to_vec(), signature2))
+    );
 }
 
 #[test]
@@ -87,8 +100,11 @@ pub async fn core_get_head() {
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(core.len(), 0);
     assert_eq!(core.head().await.unwrap(), None);
@@ -100,23 +116,24 @@ pub async fn core_get_head() {
     assert_eq!(core.len(), 3);
     assert_eq!(
         core.get(1).await.unwrap().map(first),
-        Some(br#"{"hello":"mundo"}"#.to_vec()));
+        Some(br#"{"hello":"mundo"}"#.to_vec())
+    );
     assert_eq!(
         core.get(2).await.unwrap().map(first),
-        Some(br#"{"hello":"welt"}"#.to_vec()));
+        Some(br#"{"hello":"welt"}"#.to_vec())
+    );
     assert_eq!(
         core.head().await.unwrap().map(first),
-        Some(br#"{"hello":"welt"}"#.to_vec()));
+        Some(br#"{"hello":"welt"}"#.to_vec())
+    );
 }
 
 #[test]
 pub async fn core_append_no_secret_key() {
     let keypair = generate_keypair();
-    let mut core = Core::new(
-        storage_memory(),
-        storage_memory(),
-        keypair.public, None)
-        .await.unwrap();
+    let mut core = Core::new(storage_memory(), storage_memory(), keypair.public, None)
+        .await
+        .unwrap();
 
     assert!(core.append(b"hello", None).await.is_err());
     assert_eq!(core.len(), 0);
@@ -129,8 +146,11 @@ pub async fn core_disk_append() {
     let mut core = Core::new(
         storage_fs(&dir.to_path_buf().join("s")).await,
         storage_fs(&dir.to_path_buf().join("b")).await,
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
 
     core.append(b"hello world", None).await.unwrap();
     core.append(b"this is datacore", None).await.unwrap();
@@ -138,10 +158,12 @@ pub async fn core_disk_append() {
     assert_eq!(core.len(), 2);
     assert_eq!(
         core.get(0).await.unwrap().map(first),
-        Some(b"hello world".to_vec()));
+        Some(b"hello world".to_vec())
+    );
     assert_eq!(
         core.get(1).await.unwrap().map(first),
-        Some(b"this is datacore".to_vec()));
+        Some(b"this is datacore".to_vec())
+    );
 }
 
 #[test]
@@ -152,8 +174,11 @@ pub async fn core_disk_persists() {
     let mut core = Core::new(
         storage_fs(&dir.to_path_buf().join("s")).await,
         storage_fs(&dir.to_path_buf().join("b")).await,
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
 
     core.append(b"hello world", None).await.unwrap();
     core.append(b"this is datacore", None).await.unwrap();
@@ -161,16 +186,21 @@ pub async fn core_disk_persists() {
     let mut core = Core::new(
         storage_fs(&dir.to_path_buf().join("s")).await,
         storage_fs(&dir.to_path_buf().join("b")).await,
-        keypair2.public, Some(keypair2.secret))
-        .await.unwrap();
+        keypair2.public,
+        Some(keypair2.secret),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(core.len(), 2);
     assert_eq!(
         core.get(0).await.unwrap().map(first),
-        Some(b"hello world".to_vec()));
+        Some(b"hello world".to_vec())
+    );
     assert_eq!(
         core.get(1).await.unwrap().map(first),
-        Some(b"this is datacore".to_vec()));
+        Some(b"this is datacore".to_vec())
+    );
 }
 
 fn first<A, B>(t: (A, B)) -> A {
@@ -178,11 +208,7 @@ fn first<A, B>(t: (A, B)) -> A {
 }
 fn hash_tree(merkle: &Merkle) -> Hash {
     let roots = merkle.roots();
-    let hashes = roots.iter()
-        .map(|root| root.hash())
-        .collect::<Vec<&Hash>>();
-    let lengths = roots.iter()
-        .map(|root| root.length())
-        .collect::<Vec<u64>>();
+    let hashes = roots.iter().map(|root| root.hash()).collect::<Vec<&Hash>>();
+    let lengths = roots.iter().map(|root| root.length()).collect::<Vec<u64>>();
     Hash::from_roots(&hashes, &lengths)
 }

@@ -1,9 +1,9 @@
-use std::io::{Error, ErrorKind, Result};
-use prost::Message;
-use getrandom::getrandom;
 use blake2_rfc::blake2b::Blake2b;
-use snow::{Builder, Error as SnowError, HandshakeState};
+use getrandom::getrandom;
+use prost::Message;
 pub use snow::Keypair;
+use snow::{Builder, Error as SnowError, HandshakeState};
+use std::io::{Error, ErrorKind, Result};
 
 use super::super::schema::NoisePayload;
 use super::CAP_NS_BUF;

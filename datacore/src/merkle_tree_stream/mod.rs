@@ -40,7 +40,11 @@ pub struct DefaultNode<H> {
 impl<H> Node<H> for DefaultNode<H> {
     #[inline]
     fn new(index: u64, hash: H, length: u64) -> Self {
-        Self { index, hash, length }
+        Self {
+            index,
+            hash,
+            length,
+        }
     }
     #[inline]
     fn index(&self) -> u64 {
@@ -104,10 +108,7 @@ impl<H: HashMethods> MerkleTreeStream<H> {
                 }
 
                 let hash = self.handler.parent(left, right);
-                H::Node::new(
-                    left_parent,
-                    hash,
-                    left.length() + right.length())
+                H::Node::new(left_parent, hash, left.length() + right.length())
             };
             for _ in 0..2 {
                 self.roots.pop();

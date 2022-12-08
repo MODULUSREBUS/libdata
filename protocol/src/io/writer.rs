@@ -1,8 +1,8 @@
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::io::Result;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::collections::VecDeque;
 use tokio::io::AsyncWrite;
 
 use crate::message::{EncodeError, Encoder, Frame};
@@ -105,9 +105,10 @@ impl WriteState {
                 }
                 Step::Writing => {
                     let n = match Pin::new(&mut writer)
-                        .poll_write(cx, &self.buf[self.start..self.end])? {
-                            Poll::Ready(n) => n,
-                            Poll::Pending => return Poll::Pending,
+                        .poll_write(cx, &self.buf[self.start..self.end])?
+                    {
+                        Poll::Ready(n) => n,
+                        Poll::Pending => return Poll::Pending,
                     };
                     self.start += n;
                     if self.start == self.end {

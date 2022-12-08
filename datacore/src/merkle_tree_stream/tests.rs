@@ -1,11 +1,9 @@
-use std::iter;
-use std::collections::HashSet;
 use quickcheck::quickcheck;
+use std::collections::HashSet;
+use std::iter;
 
+use super::{flat_tree, DefaultNode, HashMethods, MerkleTreeStream, Node};
 use crypto_hash::{hex_digest, Algorithm};
-use super::{
-    DefaultNode, HashMethods, MerkleTreeStream, Node, flat_tree,
-};
 
 struct H;
 impl HashMethods for H {
@@ -36,8 +34,7 @@ fn mts_one_node() {
     assert_eq!(5, n.length());
     assert_eq!(0, n.index());
 
-    let expected =
-        "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+    let expected = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
     assert_eq!(expected.as_bytes(), n.hash());
 }
 
@@ -54,8 +51,7 @@ fn mts_more_nodes() {
     assert_eq!(1, mts.roots().len());
 
     // check root node
-    let expected_r =
-        "62af5c3cb8da3e4f25061e829ebeea5c7513c54949115b1acc225930a90154da";
+    let expected_r = "62af5c3cb8da3e4f25061e829ebeea5c7513c54949115b1acc225930a90154da";
     {
         let rs = mts.roots();
         assert_eq!(1, rs.len());
@@ -78,8 +74,7 @@ fn mts_more_nodes() {
         let r = &rs[0];
         assert_eq!(expected_r.as_bytes(), r.hash());
 
-        let expected_c =
-            "2e7d2c03a9507ae265ecf5b5356885a53393a2029d241394997265a1a25aefc6";
+        let expected_c = "2e7d2c03a9507ae265ecf5b5356885a53393a2029d241394997265a1a25aefc6";
         let c = &rs[1];
         assert_eq!(expected_c.as_bytes(), c.hash());
     }
@@ -96,8 +91,7 @@ fn mts_more_nodes() {
     {
         let rs = mts.roots();
         let t = &rs[0];
-        let expected_t =
-            "58c89d709329eb37285837b042ab6ff72c7c8f74de0446b091b6a0131c102cfd";
+        let expected_t = "58c89d709329eb37285837b042ab6ff72c7c8f74de0446b091b6a0131c102cfd";
         assert_eq!(expected_t.as_bytes(), t.hash());
     }
 }
@@ -115,9 +109,8 @@ fn all_children(index: u64) -> Box<dyn Iterator<Item = u64>> {
     let self_ = iter::once(index);
     match (flat_tree::left_child(index), flat_tree::right_child(index)) {
         (Some(left), Some(right)) => {
-            Box::new(
-                self_.chain(all_children(left)).chain(all_children(right)))
-        },
+            Box::new(self_.chain(all_children(left)).chain(all_children(right)))
+        }
         _ => Box::new(self_),
     }
 }
@@ -140,7 +133,8 @@ fn roots_have_no_parent() {
         let mts = build_mts(&data);
         let roots = mts.roots();
 
-        let root_parents: HashSet<_> = roots.iter()
+        let root_parents: HashSet<_> = roots
+            .iter()
             .map(|root| flat_tree::parent(root.index()))
             .collect();
         root_parents.iter().all(|parent| *parent >= len)
@@ -150,12 +144,7 @@ fn roots_have_no_parent() {
 
 #[test]
 fn hashes_change_when_data_is_changed() {
-    fn prop(
-        first_block: Vec<u8>,
-        rest: Vec<Vec<u8>>,
-        n: usize,
-        update: Vec<u8>,
-        ) -> bool {
+    fn prop(first_block: Vec<u8>, rest: Vec<Vec<u8>>, n: usize, update: Vec<u8>) -> bool {
         // Make sure there is at least one block to replace
         let mut data = rest;
         data.insert(0, first_block);
@@ -196,7 +185,8 @@ impl HashMethods for XorHashMethods {
     }
 
     fn parent(&self, a: &Self::Node, b: &Self::Node) -> Self::Hash {
-        let hash = Node::hash(a).iter()
+        let hash = Node::hash(a)
+            .iter()
             .chain(Node::hash(b).iter())
             .fold(0, |acc, x| acc ^ x);
         vec![hash]
@@ -221,7 +211,7 @@ fn xor_hash_example() {
     //
     //   4(world)
 
-    let xor_world = b"world".iter().fold(0, |acc, x| { acc ^ x });
+    let xor_world = b"world".iter().fold(0, |acc, x| acc ^ x);
 
     assert_eq!(mts.roots().len(), 2);
     assert_eq!(mts.roots()[0].index, 1);

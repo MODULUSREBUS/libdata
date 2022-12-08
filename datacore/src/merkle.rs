@@ -1,10 +1,10 @@
-use anyhow::{Result, ensure};
-use std::mem::size_of;
-use std::io::{Cursor, Read};
+use anyhow::{ensure, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Cursor, Read};
+use std::mem::size_of;
 
-use crate::merkle_tree_stream::{HashMethods, MerkleTreeStream};
 use crate::hash::{Hash, HASH_SIZE};
+use crate::merkle_tree_stream::{HashMethods, MerkleTreeStream};
 
 pub use crate::merkle_tree_stream::Node as NodeTrait;
 
@@ -125,9 +125,7 @@ impl Merkle {
     /// Get a vector of roots `Hash`'s'.
     #[inline]
     pub fn roots_hashes(&self) -> Vec<&Hash> {
-        self.stream.roots().iter()
-            .map(|node| &node.hash)
-            .collect()
+        self.stream.roots().iter().map(|node| &node.hash).collect()
     }
 
     /// Get number of blocks.

@@ -1,8 +1,8 @@
-use anyhow::{Result, ensure};
+use anyhow::{ensure, Result};
+use blake3::Hasher;
+use byteorder::{LittleEndian, WriteBytesExt};
 use std::mem::size_of;
 use std::ops::Deref;
-use byteorder::{LittleEndian, WriteBytesExt};
-use blake3::Hasher;
 
 const HASH_LENGTH: usize = 32;
 
@@ -73,9 +73,7 @@ impl Hash {
     pub fn from_bytes(data: &[u8]) -> Result<Self> {
         ensure!(data.len() == HASH_SIZE);
         let hash = data.try_into().unwrap();
-        Ok(Self {
-            hash,
-        })
+        Ok(Self { hash })
     }
 }
 
@@ -144,15 +142,11 @@ mod tests {
         let hash1 = Hash::from_leaf(&data1);
         let hash2 = Hash::from_leaf(&data2);
         check_hash(
-            Hash::from_roots(
-                &[&hash1, &hash2],
-                &[data1.len() as u64, data2.len() as u64]),
+            Hash::from_roots(&[&hash1, &hash2], &[data1.len() as u64, data2.len() as u64]),
             "9b5022ef9e4326beb4b9d0f007856ee2398dad10bac4673572736d811519d080",
         );
         check_hash(
-            Hash::from_roots(
-                &[&hash2, &hash1],
-                &[data2.len() as u64, data1.len() as u64]),
+            Hash::from_roots(&[&hash2, &hash1], &[data2.len() as u64, data1.len() as u64]),
             "d26188a66e8e124d0e01493e372b63a8816f476176bebaf62d46395a328816f5",
         );
     }

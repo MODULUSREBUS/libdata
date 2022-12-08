@@ -1,14 +1,14 @@
 mod reader;
 mod writer;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use crate::Options;
-use crate::message::Frame;
 use self::reader::ReadState;
 use self::writer::WriteState;
+use crate::message::Frame;
+use crate::Options;
 
 #[derive(Debug)]
 pub struct IO<T> {
@@ -33,11 +33,7 @@ where
     }
 
     /// Poll for inbound messages and process them.
-    pub fn poll_inbound_read(
-        &mut self,
-        cx: &mut Context<'_>,
-        ) -> Result<Option<Frame>>
-    {
+    pub fn poll_inbound_read(&mut self, cx: &mut Context<'_>) -> Result<Option<Frame>> {
         let msg = self.read_state.poll_reader(cx, &mut self.io);
         match msg {
             Poll::Ready(Ok(message)) => Ok(Some(message)),
@@ -47,8 +43,7 @@ where
     }
 
     /// Poll for outbound messages and write them.
-    pub fn poll_outbound_write(&mut self, cx: &mut Context<'_>) -> Result<()>
-    {
+    pub fn poll_outbound_write(&mut self, cx: &mut Context<'_>) -> Result<()> {
         let poll = self.write_state.poll_send(cx, &mut self.io);
         if let Poll::Ready(Err(e)) = poll {
             return Err(anyhow!(e));

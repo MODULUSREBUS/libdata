@@ -1,10 +1,10 @@
+use futures_timer::Delay;
+use std::future::Future;
 use std::io::{Error, ErrorKind, Result};
 use std::pin::Pin;
-use std::time::Duration;
 use std::task::{Context, Poll};
-use std::future::Future;
+use std::time::Duration;
 use tokio::io::{AsyncRead, ReadBuf};
-use futures_timer::Delay;
 
 use crate::message::{Frame, FrameType};
 use crate::noise::{Cipher, HandshakeResult};
@@ -74,8 +74,7 @@ impl ReadState {
             let mut buf = ReadBuf::new(&mut self.buf[self.end..]);
             let n0 = buf.filled().len();
             let n = match Pin::new(&mut reader).poll_read(cx, &mut buf) {
-                Poll::Ready(Ok(())) if (buf.filled().len() - n0) > 0 =>
-                    buf.filled().len() - n0,
+                Poll::Ready(Ok(())) if (buf.filled().len() - n0) > 0 => buf.filled().len() - n0,
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                 // If the reader is pending, poll the timeout.
                 Poll::Pending | Poll::Ready(Ok(_)) => {
@@ -85,10 +84,12 @@ impl ReadState {
                         None => Poll::Pending,
                         Some(mut timeout) => match Pin::new(&mut timeout).poll(cx) {
                             Poll::Pending => Poll::Pending,
-                            Poll::Ready(_) => Poll::Ready(Err(
-                                    Error::new(ErrorKind::TimedOut, "Remote timed out"))),
+                            Poll::Ready(_) => Poll::Ready(Err(Error::new(
+                                ErrorKind::TimedOut,
+                                "Remote timed out",
+                            ))),
                         },
-                    }
+                    };
                 }
             };
 
@@ -101,8 +102,7 @@ impl ReadState {
             // reset timeout
             match self.timeout_duration {
                 None => None,
-                Some(timeout_duration) =>
-                    self.timeout.as_mut().map(|t| t.reset(timeout_duration)),
+                Some(timeout_duration) => self.timeout.as_mut().map(|t| t.reset(timeout_duration)),
             };
         }
     }
@@ -116,10 +116,7 @@ impl ReadState {
             match self.step {
                 Step::Header => {
                     let mut body_len = 0;
-                    let header_len = varinteger::decode(
-                        &self.buf[..self.end],
-                        &mut body_len,
-                    );
+                    let header_len = varinteger::decode(&self.buf[..self.end], &mut body_len);
                     let body_len = body_len as usize;
                     let message_len = header_len + body_len;
 
@@ -142,12 +139,9 @@ impl ReadState {
 
                     if self.end < message_len {
                         return None;
-                    }
-                    else {
-                        let frame = Frame::decode(
-                            &self.buf[header_len..message_len],
-                            &self.frame_type,
-                        );
+                    } else {
+                        let frame =
+                            Frame::decode(&self.buf[header_len..message_len], &self.frame_type);
                         if self.end > message_len {
                             self.buf.copy_within(message_len..self.end, 0);
                         }

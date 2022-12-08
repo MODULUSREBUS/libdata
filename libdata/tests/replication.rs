@@ -1,17 +1,15 @@
 use anyhow::Result;
+use async_compat::{Compat, CompatExt};
+use futures_lite::future::zip;
+use sluice::pipe::{pipe, PipeReader, PipeWriter};
 use std::sync::Arc;
 use std::time::Duration;
-use futures_lite::future::zip;
-use tokio::{test, task, time};
 use tokio::sync::Mutex;
-use sluice::pipe::{PipeReader, PipeWriter, pipe};
-use async_compat::{Compat, CompatExt};
+use tokio::{task, test, time};
 
 use index_access_memory::IndexAccessMemory;
-use libdata::{generate_keypair, PublicKey, Core};
-use libdata::replication::{
-    CoreReplica, Duplex, Replication, Options, ReplicationHandle,
-};
+use libdata::replication::{CoreReplica, Duplex, Options, Replication, ReplicationHandle};
+use libdata::{generate_keypair, Core, PublicKey};
 
 type CoreIAM = Core<IndexAccessMemory, IndexAccessMemory>;
 
@@ -23,56 +21,67 @@ async fn new_core() -> Result<CoreIAM> {
     Core::new(
         storage_memory(),
         storage_memory(),
-        keypair.public, Some(keypair.secret))
-        .await
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
 }
 async fn new_replica(key: PublicKey) -> Result<CoreIAM> {
-    Core::new(
-        storage_memory(),
-        storage_memory(),
-        key, None)
-        .await
+    Core::new(storage_memory(), storage_memory(), key, None).await
 }
 
-type ReplicationMemory =
-    (Replication<Duplex<Compat<PipeReader>, Compat<PipeWriter>>>, ReplicationHandle);
+type ReplicationMemory = (
+    Replication<Duplex<Compat<PipeReader>, Compat<PipeWriter>>>,
+    ReplicationHandle,
+);
 
-fn create_duplex_pair_memory()
-    -> (Duplex<Compat<PipeReader>, Compat<PipeWriter>>,
-        Duplex<Compat<PipeReader>, Compat<PipeWriter>>)
-{
+fn create_duplex_pair_memory() -> (
+    Duplex<Compat<PipeReader>, Compat<PipeWriter>>,
+    Duplex<Compat<PipeReader>, Compat<PipeWriter>>,
+) {
     let (ar, bw) = pipe();
     let (br, aw) = pipe();
-    (Duplex::new(ar.compat(), aw.compat()), Duplex::new(br.compat(), bw.compat()))
+    (
+        Duplex::new(ar.compat(), aw.compat()),
+        Duplex::new(br.compat(), bw.compat()),
+    )
 }
-async fn create_replication_pair_memory()
-    -> (ReplicationMemory, ReplicationMemory)
-{
+async fn create_replication_pair_memory() -> (ReplicationMemory, ReplicationMemory) {
     const KEEPALIVE_MS: u64 = 500;
 
     let (a_stream, b_stream) = create_duplex_pair_memory();
     let (a, b) = zip(
         task::spawn(async move {
-            Replication::with_options(a_stream, Options {
-                is_initiator: false,
-                keepalive_ms: Some(KEEPALIVE_MS),
-                ..Options::default()
-            }).await.unwrap()
+            Replication::with_options(
+                a_stream,
+                Options {
+                    is_initiator: false,
+                    keepalive_ms: Some(KEEPALIVE_MS),
+                    ..Options::default()
+                },
+            )
+            .await
+            .unwrap()
         }),
         task::spawn(async move {
-            Replication::with_options(b_stream, Options {
-                is_initiator: true,
-                keepalive_ms: Some(KEEPALIVE_MS),
-                ..Options::default()
-            }).await.unwrap()
-        })
-    ).await;
+            Replication::with_options(
+                b_stream,
+                Options {
+                    is_initiator: true,
+                    keepalive_ms: Some(KEEPALIVE_MS),
+                    ..Options::default()
+                },
+            )
+            .await
+            .unwrap()
+        }),
+    )
+    .await;
     (a.unwrap(), b.unwrap())
 }
 
 #[test]
-async fn replication_core_replica() -> Result<()>
-{
+async fn replication_core_replica() -> Result<()> {
     let mut a = new_core().await?;
     let public = a.public_key().clone();
     let b = new_replica(public.clone()).await?;
@@ -84,8 +93,7 @@ async fn replication_core_replica() -> Result<()>
     let b = Arc::new(Mutex::new(b));
     let b_replica = Box::new(CoreReplica::new(Arc::clone(&b)));
 
-    let ((a_replication, mut a_handle),
-         (b_replication, mut b_handle)) =
+    let ((a_replication, mut a_handle), (b_replication, mut b_handle)) =
         create_replication_pair_memory().await;
     let (ra, rb) = zip(
         task::spawn(async move {
@@ -95,16 +103,18 @@ async fn replication_core_replica() -> Result<()>
         task::spawn(async move {
             b_handle.open(&public, b_replica).unwrap();
             b_replication.run().await.unwrap();
-        })
-    ).await; ra?; rb?;
+        }),
+    )
+    .await;
+    ra?;
+    rb?;
 
     let mut b = b.lock().await;
     assert_eq!(b.get(0).await?.unwrap().0, data);
     Ok(())
 }
 #[test]
-async fn replication_core_replica_async_open() -> Result<()>
-{
+async fn replication_core_replica_async_open() -> Result<()> {
     let mut a = new_core().await?;
     let public = a.public_key().clone();
     let b = new_replica(public.clone()).await?;
@@ -116,8 +126,7 @@ async fn replication_core_replica_async_open() -> Result<()>
     let b = Arc::new(Mutex::new(b));
     let b_replica = Box::new(CoreReplica::new(Arc::clone(&b)));
 
-    let ((a_replication, mut a_handle),
-         (b_replication, mut b_handle)) =
+    let ((a_replication, mut a_handle), (b_replication, mut b_handle)) =
         create_replication_pair_memory().await;
     let ((ra, rb), (rc, rd)) = zip(
         zip(
@@ -126,7 +135,7 @@ async fn replication_core_replica_async_open() -> Result<()>
             }),
             task::spawn(async move {
                 b_replication.run().await.unwrap();
-            })
+            }),
         ),
         zip(
             task::spawn(async move {
@@ -134,9 +143,14 @@ async fn replication_core_replica_async_open() -> Result<()>
             }),
             task::spawn(async move {
                 b_handle.open(&public, b_replica).unwrap();
-            })
+            }),
         ),
-    ).await; ra?; rb?; rc?; rd?;
+    )
+    .await;
+    ra?;
+    rb?;
+    rc?;
+    rd?;
 
     let mut b = b.lock().await;
     assert_eq!(b.get(0).await?.unwrap().0, data);
@@ -144,8 +158,7 @@ async fn replication_core_replica_async_open() -> Result<()>
 }
 
 #[test]
-async fn replication_core_replica_multiple_blocks() -> Result<()>
-{
+async fn replication_core_replica_multiple_blocks() -> Result<()> {
     let mut a = new_core().await?;
     let public = a.public_key().clone();
     let b = new_replica(public.clone()).await?;
@@ -159,8 +172,7 @@ async fn replication_core_replica_multiple_blocks() -> Result<()>
     let b = Arc::new(Mutex::new(b));
     let b_replica = Box::new(CoreReplica::new(Arc::clone(&b)));
 
-    let ((a_replication, mut a_handle),
-         (b_replication, mut b_handle)) =
+    let ((a_replication, mut a_handle), (b_replication, mut b_handle)) =
         create_replication_pair_memory().await;
     let (ra, rb) = zip(
         task::spawn(async move {
@@ -170,8 +182,11 @@ async fn replication_core_replica_multiple_blocks() -> Result<()>
         task::spawn(async move {
             b_handle.open(&public, b_replica).unwrap();
             b_replication.run().await
-        })
-    ).await; ra??; rb??;
+        }),
+    )
+    .await;
+    ra??;
+    rb??;
 
     let mut b = b.lock().await;
     for (i, &d) in data.into_iter().enumerate() {
@@ -181,8 +196,7 @@ async fn replication_core_replica_multiple_blocks() -> Result<()>
 }
 
 #[test]
-async fn replication_core_replica_multiple_blocks_live() -> Result<()>
-{
+async fn replication_core_replica_multiple_blocks_live() -> Result<()> {
     let a = new_core().await?;
     let public = a.public_key().clone();
     let b = new_replica(public.clone()).await?;
@@ -194,8 +208,7 @@ async fn replication_core_replica_multiple_blocks_live() -> Result<()>
     let b = Arc::new(Mutex::new(b));
     let b_replica = Box::new(CoreReplica::new(Arc::clone(&b)));
 
-    let ((a_replication, mut a_handle),
-         (b_replication, mut b_handle)) =
+    let ((a_replication, mut a_handle), (b_replication, mut b_handle)) =
         create_replication_pair_memory().await;
     let ((ra, rb), (rc, rd)) = zip(
         zip(
@@ -204,7 +217,7 @@ async fn replication_core_replica_multiple_blocks_live() -> Result<()>
             }),
             task::spawn(async move {
                 b_replication.run().await.unwrap();
-            })
+            }),
         ),
         zip(
             task::spawn(async move {
@@ -218,9 +231,14 @@ async fn replication_core_replica_multiple_blocks_live() -> Result<()>
             }),
             task::spawn(async move {
                 b_handle.open(&public, b_replica).unwrap();
-            })
+            }),
         ),
-    ).await; ra?; rb?; rc?; rd?;
+    )
+    .await;
+    ra?;
+    rb?;
+    rc?;
+    rd?;
 
     let mut b = b.lock().await;
     for (i, &d) in data.into_iter().enumerate() {
@@ -230,8 +248,7 @@ async fn replication_core_replica_multiple_blocks_live() -> Result<()>
 }
 
 #[test]
-async fn replication_core_replica_of_replica() -> Result<()>
-{
+async fn replication_core_replica_of_replica() -> Result<()> {
     let mut a = new_core().await?;
     let public = a.public_key().clone();
     let b = new_replica(public.clone()).await?;
@@ -247,8 +264,7 @@ async fn replication_core_replica_of_replica() -> Result<()>
     let c = Arc::new(Mutex::new(c));
     let c_replica = Box::new(CoreReplica::new(Arc::clone(&c)));
 
-    let ((a_replication, mut a_handle),
-         (b_replication, mut b_handle)) =
+    let ((a_replication, mut a_handle), (b_replication, mut b_handle)) =
         create_replication_pair_memory().await;
     let (ra, rb) = zip(
         task::spawn(async move {
@@ -258,11 +274,13 @@ async fn replication_core_replica_of_replica() -> Result<()>
         task::spawn(async move {
             b_handle.open(&public, b_replica).unwrap();
             b_replication.run().await.unwrap();
-        })
-    ).await; ra?; rb?;
+        }),
+    )
+    .await;
+    ra?;
+    rb?;
 
-    let ((b2_replication, mut b2_handle),
-         (c_replication, mut c_handle)) =
+    let ((b2_replication, mut b2_handle), (c_replication, mut c_handle)) =
         create_replication_pair_memory().await;
     let (ra, rb) = zip(
         task::spawn(async move {
@@ -272,8 +290,11 @@ async fn replication_core_replica_of_replica() -> Result<()>
         task::spawn(async move {
             c_handle.open(&public, c_replica).unwrap();
             c_replication.run().await.unwrap();
-        })
-    ).await; ra?; rb?;
+        }),
+    )
+    .await;
+    ra?;
+    rb?;
 
     let mut c = c.lock().await;
     assert_eq!(c.get(0).await?.unwrap().0, data);

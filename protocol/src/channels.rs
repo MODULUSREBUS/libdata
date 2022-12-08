@@ -1,8 +1,8 @@
-use anyhow::{Result, anyhow};
-use std::io::{Error, ErrorKind};
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
+use std::io::{Error, ErrorKind};
 
-use crate::{Key, DiscoveryKey, discovery_key};
+use crate::{discovery_key, DiscoveryKey, Key};
 
 #[inline]
 fn error<T>(kind: ErrorKind, msg: &str) -> Result<T> {
@@ -39,9 +39,7 @@ impl ChannelHandle {
         }
     }
     #[inline]
-    fn new_local(
-        local_id: usize, discovery_key: DiscoveryKey, key: Key) -> Self
-    {
+    fn new_local(local_id: usize, discovery_key: DiscoveryKey, key: Key) -> Self {
         let mut this = Self::new(discovery_key);
         this.attach_local(local_id, key);
         this
@@ -51,8 +49,7 @@ impl ChannelHandle {
         remote_id: usize,
         discovery_key: DiscoveryKey,
         remote_capability: Option<Vec<u8>>,
-        ) -> Self
-    {
+    ) -> Self {
         let mut this = Self::new(discovery_key);
         this.attach_remote(remote_id, remote_capability);
         this
@@ -64,9 +61,7 @@ impl ChannelHandle {
         self.local_state = Some(local_state);
     }
     #[inline]
-    pub fn attach_remote(
-        &mut self, remote_id: usize, remote_capability: Option<Vec<u8>>)
-    {
+    pub fn attach_remote(&mut self, remote_id: usize, remote_capability: Option<Vec<u8>>) {
         let remote_state = RemoteState {
             remote_id,
             remote_capability,
@@ -97,7 +92,8 @@ impl ChannelHandle {
         if !self.is_connected() {
             return error(
                 ErrorKind::NotConnected,
-                "Channel is not opened from both local and remote")
+                "Channel is not opened from both local and remote",
+            );
         }
         // Safe because of the `is_connected()` check above.
         let local_state = self.local_state.as_ref().unwrap();
@@ -134,8 +130,7 @@ impl ChannelMap {
         self.channels
             .entry(discovery_key_hex.clone())
             .and_modify(|channel| channel.attach_local(local_id, key))
-            .or_insert_with(
-                || ChannelHandle::new_local(local_id, discovery_key, key));
+            .or_insert_with(|| ChannelHandle::new_local(local_id, discovery_key, key));
 
         self.local_id[local_id] = Some(discovery_key_hex.clone());
         self.channels.get(&discovery_key_hex).unwrap()
@@ -146,19 +141,16 @@ impl ChannelMap {
         discovery_key: DiscoveryKey,
         remote_id: usize,
         remote_capability: Option<Vec<u8>>,
-        ) -> &ChannelHandle
-    {
+    ) -> &ChannelHandle {
         let discovery_key_hex = hex::encode(&discovery_key);
         self.alloc_remote(remote_id);
 
         self.channels
             .entry(discovery_key_hex.clone())
-            .and_modify(
-                |channel| channel.attach_remote(
-                    remote_id, remote_capability.clone()))
-            .or_insert_with(
-                || ChannelHandle::new_remote(
-                    remote_id, discovery_key, remote_capability));
+            .and_modify(|channel| channel.attach_remote(remote_id, remote_capability.clone()))
+            .or_insert_with(|| {
+                ChannelHandle::new_remote(remote_id, discovery_key, remote_capability)
+            });
 
         self.remote_id[remote_id] = Some(discovery_key_hex.clone());
         self.channels.get(&discovery_key_hex).unwrap()
@@ -169,18 +161,14 @@ impl ChannelMap {
         self.channels.get(&discovery_key_hex)
     }
     pub fn get_remote(&self, remote_id: usize) -> Option<&ChannelHandle> {
-        if let Some(Some(discovery_key_hex)) =
-            self.remote_id.get(remote_id).as_ref()
-        {
+        if let Some(Some(discovery_key_hex)) = self.remote_id.get(remote_id).as_ref() {
             self.channels.get(discovery_key_hex)
         } else {
             None
         }
     }
     pub fn get_local(&self, local_id: usize) -> Option<&ChannelHandle> {
-        if let Some(Some(discovery_key_hex)) =
-            self.local_id.get(local_id).as_ref()
-        {
+        if let Some(Some(discovery_key_hex)) = self.local_id.get(local_id).as_ref() {
             self.channels.get(discovery_key_hex)
         } else {
             None
@@ -201,9 +189,7 @@ impl ChannelMap {
         self.channels.remove(&discovery_key_hex);
     }
 
-    pub fn prepare_to_verify(
-        &self, local_id: usize) -> Result<(&Key, Option<&Vec<u8>>)>
-    {
+    pub fn prepare_to_verify(&self, local_id: usize) -> Result<(&Key, Option<&Vec<u8>>)> {
         let channel_handle = match self.get_local(local_id) {
             None => return error(ErrorKind::NotFound, "Channel not found"),
             Some(handle) => handle,
@@ -212,8 +198,7 @@ impl ChannelMap {
     }
 
     fn alloc_local(&mut self) -> usize {
-        let empty_id = self.local_id
-            .iter().skip(1).position(|x| x.is_none());
+        let empty_id = self.local_id.iter().skip(1).position(|x| x.is_none());
         match empty_id {
             Some(empty_id) => empty_id,
             None => {

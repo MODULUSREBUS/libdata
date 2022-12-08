@@ -21,30 +21,24 @@ where
 {
     /// Write a `Block`.
     #[inline]
-    pub async fn write(
-        &mut self,
-        index: u32,
-        block: &Block,
-        ) -> Result<()>
-    {
+    pub async fn write(&mut self, index: u32, block: &Block) -> Result<()> {
         let data = block.to_bytes()?;
         ensure!(data.len() == BLOCK_LENGTH as usize);
 
         self.store
             .write((index + 1).to_string(), &data)
-            .await.map_err(|e| anyhow!(e))
+            .await
+            .map_err(|e| anyhow!(e))
     }
 
     /// Read a `Block`.
     #[inline]
-    pub async fn read(
-        &mut self,
-        index: u32,
-        ) -> Result<Block>
-    {
-        let data = self.store
+    pub async fn read(&mut self, index: u32) -> Result<Block> {
+        let data = self
+            .store
             .read((index + 1).to_string())
-            .await.map_err(|e| anyhow!(e))?;
+            .await
+            .map_err(|e| anyhow!(e))?;
         ensure!(data.len() == BLOCK_LENGTH as usize);
 
         Block::from_bytes(&data)
@@ -53,10 +47,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use tokio::test;
-    use index_access_memory::IndexAccessMemory;
-    use crate::block::{Signature, BlockSignature, SIGNATURE_LENGTH};
     use super::*;
+    use crate::block::{BlockSignature, Signature, SIGNATURE_LENGTH};
+    use index_access_memory::IndexAccessMemory;
+    use tokio::test;
 
     fn iam() -> IndexAccessMemory {
         IndexAccessMemory::new()

@@ -2,20 +2,24 @@ mod common;
 use common::{create_pair_memory, establish};
 
 use anyhow::Result;
-use tokio::test;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_stream::StreamExt;
 use tokio::task;
+use tokio::test;
+use tokio_stream::StreamExt;
 
-use protocol::{Key, Protocol, main::{Event::*, Stage}, discovery_key};
+use protocol::{
+    discovery_key,
+    main::{Event::*, Stage},
+    Key, Protocol,
+};
 
 #[test]
 async fn basic_protocol() -> anyhow::Result<()> {
     async fn create_protocol_handler<T>(
         key: Key,
         mut proto: Protocol<T, Stage>,
-        is_initiator: bool
-        ) -> task::JoinHandle<Result<Protocol<T, Stage>>>
+        is_initiator: bool,
+    ) -> task::JoinHandle<Result<Protocol<T, Stage>>>
     where
         T: AsyncRead + AsyncWrite + Send + Unpin + 'static,
     {
@@ -31,18 +35,18 @@ async fn basic_protocol() -> anyhow::Result<()> {
                         if remote_discovery == discovery {
                             proto.open(key).await?;
                         }
-                    },
+                    }
                     Open(remote_discovery) => {
                         if remote_discovery == discovery {
                             proto.close(discovery)?;
                         }
-                    },
+                    }
                     Close(remote_discovery) => {
                         if remote_discovery == discovery {
                             proto.close(discovery)?;
                             return Ok(proto);
                         }
-                    },
+                    }
                     _ => (),
                 }
             }
@@ -60,7 +64,7 @@ async fn basic_protocol() -> anyhow::Result<()> {
     a.await;
     b.await;
 
-    return Ok(())
+    return Ok(());
 }
 
 #[test]
@@ -68,7 +72,7 @@ async fn basic_protocol_both_open() -> anyhow::Result<()> {
     async fn create_protocol_handler<T>(
         key: Key,
         mut proto: Protocol<T, Stage>,
-        ) -> task::JoinHandle<Result<Protocol<T, Stage>>>
+    ) -> task::JoinHandle<Result<Protocol<T, Stage>>>
     where
         T: AsyncRead + AsyncWrite + Send + Unpin + 'static,
     {
@@ -82,13 +86,13 @@ async fn basic_protocol_both_open() -> anyhow::Result<()> {
                         if remote_discovery == discovery {
                             proto.close(discovery)?;
                         }
-                    },
+                    }
                     Close(remote_discovery) => {
                         if remote_discovery == discovery {
                             proto.close(discovery)?;
                             return Ok(proto);
                         }
-                    },
+                    }
                     _ => (),
                 }
             }
@@ -106,5 +110,5 @@ async fn basic_protocol_both_open() -> anyhow::Result<()> {
     a.await;
     b.await;
 
-    return Ok(())
+    return Ok(());
 }

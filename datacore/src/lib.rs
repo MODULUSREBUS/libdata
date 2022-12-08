@@ -40,20 +40,17 @@
 //! ```
 
 mod block;
+mod core;
+mod hash;
+mod keys;
+mod merkle;
+mod merkle_tree_stream;
 mod store;
 mod store_blocks;
-mod merkle_tree_stream;
-mod keys;
-mod hash;
-mod merkle;
-mod core;
 
-pub use index_access_storage::IndexAccess;
-pub use block::{Signature, BlockSignature, Block, SIGNATURE_LENGTH};
-pub use keys::{
-    Keypair, PublicKey, SecretKey,
-    generate_keypair, sign, verify
-};
+pub use self::core::{Core, MAX_BLOCK_SIZE, MAX_CORE_LENGTH};
+pub use block::{Block, BlockSignature, Signature, SIGNATURE_LENGTH};
 pub use hash::Hash;
+pub use index_access_storage::IndexAccess;
+pub use keys::{generate_keypair, sign, verify, Keypair, PublicKey, SecretKey};
 pub use merkle::{Merkle, Node, NodeTrait};
-pub use self::core::{Core, MAX_CORE_LENGTH, MAX_BLOCK_SIZE};

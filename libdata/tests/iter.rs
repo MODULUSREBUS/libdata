@@ -1,8 +1,8 @@
 use anyhow::Result;
-use std::sync::Arc;
 use futures_lite::stream::StreamExt;
-use tokio::test;
+use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio::test;
 
 use index_access_memory::IndexAccessMemory;
 use libdata::{generate_keypair, Core, CoreIterator};
@@ -12,14 +12,16 @@ pub fn storage_memory() -> IndexAccessMemory {
 }
 
 #[test]
-async fn iter_simple() -> Result<()>
-{
+async fn iter_simple() -> Result<()> {
     let keypair = generate_keypair();
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
 
     let data = vec![1, 2, 3];
     for d in data {
@@ -35,14 +37,16 @@ async fn iter_simple() -> Result<()>
 }
 
 #[test]
-async fn iter_offset() -> Result<()>
-{
+async fn iter_offset() -> Result<()> {
     let keypair = generate_keypair();
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
 
     let data = vec![1, 2, 3];
     for d in data {
@@ -57,14 +61,16 @@ async fn iter_offset() -> Result<()>
 }
 
 #[test]
-async fn iter_out_of_bounds() -> Result<()>
-{
+async fn iter_out_of_bounds() -> Result<()> {
     let keypair = generate_keypair();
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
 
     let data = vec![1, 2, 3];
     for d in data {

@@ -1,19 +1,18 @@
-use anyhow::{Result, anyhow};
-use std::task::{Context, Poll};
-use std::pin::Pin;
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio_stream::{Stream, StreamExt};
-use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 
-use protocol::{new_protocol, Protocol, Message};
-use protocol::main::{Stage, Event as ProtocolEvent};
-use crate::{DiscoveryKey, discovery_key};
 use crate::replication::{
-    Options, ReplicaTrait, Request, Data, DataOrRequest,
-    Command, ReplicationHandle,
+    Command, Data, DataOrRequest, Options, ReplicaTrait, ReplicationHandle, Request,
 };
+use crate::{discovery_key, DiscoveryKey};
+use protocol::main::{Event as ProtocolEvent, Stage};
+use protocol::{new_protocol, Message, Protocol};
 
 /// [Replication] event.
 #[derive(Debug)]
@@ -39,19 +38,19 @@ where
     T: AsyncWrite + AsyncRead + Send + Unpin,
 {
     /// Create `Replication` and wait for protocol handshake.
-    pub async fn new(stream: T, is_initiator: bool)
-        -> Result<(Self, ReplicationHandle)>
-    {
-        Self::with_options(stream, Options {
-            is_initiator,
-            ..Options::default()
-        }).await
+    pub async fn new(stream: T, is_initiator: bool) -> Result<(Self, ReplicationHandle)> {
+        Self::with_options(
+            stream,
+            Options {
+                is_initiator,
+                ..Options::default()
+            },
+        )
+        .await
     }
 
     /// Create `Replication` with [Options] and wait for protocol handshake.
-    pub async fn with_options(stream: T, options: Options)
-        -> Result<(Self, ReplicationHandle)>
-    {
+    pub async fn with_options(stream: T, options: Options) -> Result<(Self, ReplicationHandle)> {
         let (tx, rx) = unbounded_channel();
         let handle = ReplicationHandle { tx };
 
@@ -77,27 +76,28 @@ where
     pub async fn run_with_discovery_hook<F>(
         mut self,
         on_discovery: impl Fn(DiscoveryKey) -> F + Copy,
-        ) -> Result<()>
+    ) -> Result<()>
     where
-        F: Future<Output=Result<()>>,
+        F: Future<Output = Result<()>>,
     {
         loop {
             match self.next().await.unwrap() {
                 Event::Command(cmd) => {
                     if !self.handle_command(cmd).await? {
-                        return Ok(())
+                        return Ok(());
                     }
-                },
+                }
                 Event::Event(event) => {
                     if !self.handle_event(event, on_discovery).await? {
-                        return Ok(())
+                        return Ok(());
                     }
-                },
+                }
             };
         }
     }
     async fn handle_command(&mut self, command: Command) -> Result<bool> {
-        #[cfg(test)] println!("handle_command {:?}", command);
+        #[cfg(test)]
+        println!("handle_command {:?}", command);
 
         match command {
             Command::Open(key, replica) => {
@@ -105,16 +105,16 @@ where
                 self.replicas.insert(discovery, replica);
                 self.protocol.open(key.to_bytes()).await?;
                 Ok(true)
-            },
+            }
             Command::ReOpen(key) => {
                 self.replica_on_open(&key).await?;
                 Ok(true)
-            },
+            }
             Command::Close(key) => {
                 self.protocol.close(key)?;
                 self.replicas.remove(&key);
                 Ok(true)
-            },
+            }
             Command::Quit() => {
                 let mut is_error = false;
                 for (_, replica) in self.replicas.iter_mut() {
@@ -124,18 +124,19 @@ where
                     true => Err(anyhow!("Quit before replication finished.")),
                     false => Ok(false),
                 }
-            },
+            }
         }
     }
     async fn handle_event<F>(
         &mut self,
         event: Result<ProtocolEvent>,
         on_discovery: impl FnOnce(DiscoveryKey) -> F,
-        ) -> Result<bool>
+    ) -> Result<bool>
     where
-        F: Future<Output=Result<()>>,
+        F: Future<Output = Result<()>>,
     {
-        #[cfg(test)] println!("handle_event {:?}", event);
+        #[cfg(test)]
+        println!("handle_event {:?}", event);
 
         let msg = match event {
             Ok(msg) => msg,
@@ -147,36 +148,34 @@ where
                 return match is_error {
                     true => Err(err),
                     false => Ok(false),
-                }
-            },
+                };
+            }
         };
 
         match msg {
             ProtocolEvent::DiscoveryKey(discovery) => {
                 on_discovery(discovery).await?;
-            },
+            }
             ProtocolEvent::Open(discovery) => {
                 self.replica_on_open(&discovery).await?;
-            },
+            }
             ProtocolEvent::Close(discovery) => {
                 self.replica_on_close(&discovery).await?;
-            },
+            }
             ProtocolEvent::Message(discovery, msg) => match msg {
                 Message::Request(request) => {
                     self.replica_on_request(&discovery, request).await?;
-                },
+                }
                 Message::Data(data) => {
                     self.replica_on_data(&discovery, data).await?;
-                },
-                _ => {},
+                }
+                _ => {}
             },
         };
         Ok(true)
     }
 
-    async fn replica_on_open(
-        &mut self, key: &DiscoveryKey) -> Result<()>
-    {
+    async fn replica_on_open(&mut self, key: &DiscoveryKey) -> Result<()> {
         if let Some(replica) = self.replicas.get_mut(key) {
             let request = replica.on_open().await?;
             if let Some(request) = request {
@@ -186,9 +185,7 @@ where
         Ok(())
     }
 
-    async fn replica_on_close(
-        &mut self, key: &DiscoveryKey) -> Result<()>
-    {
+    async fn replica_on_close(&mut self, key: &DiscoveryKey) -> Result<()> {
         if let Some(replica) = self.replicas.get_mut(key) {
             replica.on_close().await?;
         }
@@ -196,25 +193,19 @@ where
         Ok(())
     }
 
-    async fn replica_on_request(
-        &mut self, key: &DiscoveryKey, request: Request) -> Result<()>
-    {
+    async fn replica_on_request(&mut self, key: &DiscoveryKey, request: Request) -> Result<()> {
         if let Some(replica) = self.replicas.get_mut(key) {
             let msg = replica.on_request(request).await?;
             match msg {
-                Some(DataOrRequest::Data(data)) =>
-                    self.protocol.data(key, data)?,
-                Some(DataOrRequest::Request(request)) =>
-                    self.protocol.request(key, request)?,
-                None => {},
+                Some(DataOrRequest::Data(data)) => self.protocol.data(key, data)?,
+                Some(DataOrRequest::Request(request)) => self.protocol.request(key, request)?,
+                None => {}
             };
         }
         Ok(())
     }
 
-    async fn replica_on_data(
-        &mut self, key: &DiscoveryKey, data: Data) -> Result<()>
-    {
+    async fn replica_on_data(&mut self, key: &DiscoveryKey, data: Data) -> Result<()> {
         if let Some(replica) = self.replicas.get_mut(key) {
             let request = replica.on_data(data).await?;
             if let Some(request) = request {
@@ -230,11 +221,7 @@ where
 {
     type Item = Event;
 
-    fn poll_next(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        ) -> Poll<Option<Self::Item>>
-    {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
 
         if let Poll::Ready(Some(t)) = this.command_rx.poll_recv(cx) {

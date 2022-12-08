@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use tokio::runtime::Runtime;
 
-use random_access_memory::RandomAccessMemory;
 use datacore::{generate_keypair, Core};
+use random_access_memory::RandomAccessMemory;
 
 type HomogenousCore<T> = Core<T, T, T>;
 type MemoryCore = HomogenousCore<RandomAccessMemory>;
@@ -17,8 +17,11 @@ async fn init() -> MemoryCore {
         random_access_memory(),
         random_access_memory(),
         random_access_memory(),
-        keypair.public, Some(keypair.secret))
-        .await.unwrap()
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap()
 }
 
 async fn hypercore_append(mut core: MemoryCore, blocks: u64) {

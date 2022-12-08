@@ -7,14 +7,14 @@
 
 //! Replication protocol for hypercore feeds.
 
-mod options;
 mod channels;
 mod duplex;
-mod message;
 mod io;
-mod util;
+mod message;
 mod noise;
+mod options;
 mod protocol;
+mod util;
 
 /// The wire messages used by the protocol.
 #[allow(missing_docs)]
@@ -33,11 +33,8 @@ pub type RemotePublicKey = [u8; 32];
 /// Discovery key (32 bytes).
 pub type DiscoveryKey = [u8; 32];
 
-pub use options::Options;
+pub use crate::protocol::{handshake, main, new_protocol, new_protocol_with_defaults, Protocol};
 pub use duplex::Duplex;
 pub use message::Message;
+pub use options::Options;
 pub use util::discovery_key;
-pub use crate::protocol::{
-    new_protocol, new_protocol_with_defaults,
-    Protocol, handshake, main,
-};

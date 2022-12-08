@@ -1,7 +1,7 @@
 use anyhow::Result;
-use std::mem::size_of;
-use std::io::{Cursor, Read};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Cursor, Read};
+use std::mem::size_of;
 
 pub use ed25519_dalek::{Signature, SIGNATURE_LENGTH};
 
@@ -16,10 +16,7 @@ impl BlockSignature {
     /// Create a new [BlockSignature].
     #[inline]
     pub fn new(data: Signature, tree: Signature) -> Self {
-        Self {
-            data,
-            tree,
-        }
+        Self { data, tree }
     }
 
     /// Get data [Signature].
@@ -44,8 +41,7 @@ pub struct Block {
     signature: BlockSignature,
 }
 
-pub const BLOCK_LENGTH: usize
-    = size_of::<u64>() + size_of::<u32>() + (2 * SIGNATURE_LENGTH);
+pub const BLOCK_LENGTH: usize = size_of::<u64>() + size_of::<u32>() + (2 * SIGNATURE_LENGTH);
 
 impl Block {
     /// Create a new [Block].

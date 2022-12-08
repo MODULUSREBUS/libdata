@@ -1,7 +1,7 @@
-use quickcheck::{quickcheck, TestResult};
 use insta;
+use quickcheck::{quickcheck, TestResult};
 
-use libdata::{generate_keypair, derive_keypair, SecretKey};
+use libdata::{derive_keypair, generate_keypair, SecretKey};
 
 #[test]
 fn key_can_generate() {
@@ -46,10 +46,8 @@ quickcheck! {
 }
 
 const SECRET_KEY_BYTES: [u8; 32] = [
-    157, 097, 177, 157, 239, 253, 090, 096,
-    186, 132, 074, 244, 146, 236, 044, 196,
-    068, 073, 197, 105, 123, 050, 105, 025,
-    112, 059, 172, 003, 028, 174, 127, 096,
+    157, 097, 177, 157, 239, 253, 090, 096, 186, 132, 074, 244, 146, 236, 044, 196, 068, 073, 197,
+    105, 123, 050, 105, 025, 112, 059, 172, 003, 028, 174, 127, 096,
 ];
 
 #[test]
@@ -78,7 +76,7 @@ fn key_snapshot_3() {
         &main,
         "a very long string as a key name should not break the key derive, \
         it should just work without any issues, this is just testing it, \
-        to be sure"
+        to be sure",
     );
     insta::assert_debug_snapshot!(keypair.to_bytes());
 }

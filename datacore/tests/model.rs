@@ -4,7 +4,7 @@ use common::storage_memory;
 use quickcheck::{Arbitrary, Gen};
 use quickcheck_async;
 
-use datacore::{Core, generate_keypair};
+use datacore::{generate_keypair, Core};
 
 #[derive(Clone, Debug)]
 enum Op {
@@ -41,27 +41,30 @@ async fn implementation_matches_model(ops: Vec<Op>) -> bool {
     let mut core = Core::new(
         storage_memory(),
         storage_memory(),
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
     let mut model = vec![];
 
     for op in ops {
         match op {
             Op::Append { data } => {
                 core.append(&data, None)
-                    .await.expect("Append should be successful");
+                    .await
+                    .expect("Append should be successful");
                 model.push(data);
-            },
+            }
             Op::Get { index } => {
-                let data = core.get(index)
-                    .await.expect("Get should be successful");
+                let data = core.get(index).await.expect("Get should be successful");
                 if index >= core.len() {
                     assert_eq!(data, None);
                 } else {
                     let (data, _) = data.unwrap();
                     assert_eq!(data, model[index as usize].clone());
                 }
-            },
+            }
         }
     }
     core.len() as usize == model.len()

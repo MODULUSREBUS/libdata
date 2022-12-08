@@ -1,15 +1,15 @@
 mod common;
-use common::{storage_fs, copy_keypair};
+use common::{copy_keypair, storage_fs};
 
-use std::path::Path;
 use std::fs::File;
 use std::io::Read;
-use tokio::test;
+use std::path::Path;
 use tempfile;
+use tokio::test;
 
 use datacore::{
-    Core, Merkle, Signature, BlockSignature, Hash, NodeTrait,
-    generate_keypair, sign, verify, SIGNATURE_LENGTH,
+    generate_keypair, sign, verify, BlockSignature, Core, Hash, Merkle, NodeTrait, Signature,
+    SIGNATURE_LENGTH,
 };
 
 fn read_bytes(dir: &Path, s: &str) -> Vec<u8> {
@@ -21,12 +21,8 @@ fn read_bytes(dir: &Path, s: &str) -> Vec<u8> {
 
 fn hash_tree(merkle: &Merkle) -> Hash {
     let roots = merkle.roots();
-    let hashes = roots.iter()
-        .map(|root| root.hash())
-        .collect::<Vec<&Hash>>();
-    let lengths = roots.iter()
-        .map(|root| root.length())
-        .collect::<Vec<u64>>();
+    let hashes = roots.iter().map(|root| root.hash()).collect::<Vec<&Hash>>();
+    let lengths = roots.iter().map(|root| root.length()).collect::<Vec<u64>>();
     Hash::from_roots(&hashes, &lengths)
 }
 
@@ -41,13 +37,19 @@ pub async fn replicate_manual() {
     let mut core = Core::new(
         storage_fs(&dir.to_path_buf().join("store")).await,
         storage_fs(&dir.to_path_buf().join("blocks")).await,
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
     let mut replica = Core::new(
         storage_fs(&dir2.to_path_buf().join("store")).await,
         storage_fs(&dir2.to_path_buf().join("blocks")).await,
-        keypair2.public, Some(keypair2.secret))
-        .await.unwrap();
+        keypair2.public,
+        Some(keypair2.secret),
+    )
+    .await
+    .unwrap();
 
     let data1 = b"hello world";
     let data2 = b"this is datacore";
@@ -70,7 +72,8 @@ pub async fn replicate_manual() {
     merkle.next(data_hash.clone(), data2.len() as u64);
     let signature = BlockSignature::new(
         sign(&keypair3.public, &keypair3.secret, &data_hash),
-        sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)));
+        sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)),
+    );
     replica.append(data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
 
@@ -92,13 +95,19 @@ pub async fn replicate_manual_no_secret_key() {
     let mut core = Core::new(
         storage_fs(&dir.to_path_buf().join("store")).await,
         storage_fs(&dir.to_path_buf().join("blocks")).await,
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
     let mut replica = Core::new(
         storage_fs(&dir2.to_path_buf().join("store")).await,
         storage_fs(&dir2.to_path_buf().join("blocks")).await,
-        keypair2.public, Some(keypair2.secret))
-        .await.unwrap();
+        keypair2.public,
+        Some(keypair2.secret),
+    )
+    .await
+    .unwrap();
 
     let data1 = b"hello world";
     let data2 = b"this is datacore";
@@ -112,13 +121,15 @@ pub async fn replicate_manual_no_secret_key() {
     merkle.next(data_hash.clone(), data1.len() as u64);
     let signature = BlockSignature::new(
         sign(&keypair3.public, &keypair3.secret, &data_hash),
-        sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)));
+        sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)),
+    );
     replica.append(data1, Some(signature)).await.unwrap();
     let data_hash = Hash::from_leaf(data2);
     merkle.next(data_hash.clone(), data2.len() as u64);
     let signature = BlockSignature::new(
         sign(&keypair3.public, &keypair3.secret, &data_hash),
-        sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)));
+        sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)),
+    );
     replica.append(data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
 
@@ -139,13 +150,19 @@ pub async fn replicate_signatures_no_secret_key() {
     let mut core = Core::new(
         storage_fs(&dir.to_path_buf().join("store")).await,
         storage_fs(&dir.to_path_buf().join("blocks")).await,
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
     let mut replica = Core::new(
         storage_fs(&dir2.to_path_buf().join("store")).await,
         storage_fs(&dir2.to_path_buf().join("blocks")).await,
-        keypair2.public, Some(keypair2.secret))
-        .await.unwrap();
+        keypair2.public,
+        Some(keypair2.secret),
+    )
+    .await
+    .unwrap();
 
     let data1 = b"hello world";
     let data2 = b"this is datacore";
@@ -177,13 +194,19 @@ pub async fn replicate_then_append() {
     let mut core = Core::new(
         storage_fs(&dir.to_path_buf().join("store")).await,
         storage_fs(&dir.to_path_buf().join("blocks")).await,
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
     let mut replica = Core::new(
         storage_fs(&dir2.to_path_buf().join("store")).await,
         storage_fs(&dir2.to_path_buf().join("blocks")).await,
-        keypair2.public, Some(keypair2.secret))
-        .await.unwrap();
+        keypair2.public,
+        Some(keypair2.secret),
+    )
+    .await
+    .unwrap();
 
     let data1 = b"hello world";
     let data2 = b"this is datacore";
@@ -222,13 +245,19 @@ pub async fn replicate_fail_verify_then_append() {
     let mut core = Core::new(
         storage_fs(&dir.to_path_buf().join("store")).await,
         storage_fs(&dir.to_path_buf().join("blocks")).await,
-        keypair.public, Some(keypair.secret))
-        .await.unwrap();
+        keypair.public,
+        Some(keypair.secret),
+    )
+    .await
+    .unwrap();
     let mut replica = Core::new(
         storage_fs(&dir2.to_path_buf().join("store")).await,
         storage_fs(&dir2.to_path_buf().join("blocks")).await,
-        keypair2.public, Some(keypair2.secret))
-        .await.unwrap();
+        keypair2.public,
+        Some(keypair2.secret),
+    )
+    .await
+    .unwrap();
 
     let data1 = b"hello world";
     let data2 = b"this is datacore";
@@ -244,16 +273,28 @@ pub async fn replicate_fail_verify_then_append() {
     let (data2, signature) = core.get(1).await.unwrap().unwrap();
     let invalid_signature_1 = BlockSignature::new(
         signature.data(),
-        Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap());
+        Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap(),
+    );
     let invalid_signature_2 = BlockSignature::new(
         Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap(),
-        Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap());
+        Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap(),
+    );
     let invalid_signature_3 = BlockSignature::new(
         Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap(),
-        signature.tree());
-    assert!(replica.append(&data2, Some(invalid_signature_1)).await.is_err());
-    assert!(replica.append(&data2, Some(invalid_signature_2)).await.is_err());
-    assert!(replica.append(&data2, Some(invalid_signature_3)).await.is_err());
+        signature.tree(),
+    );
+    assert!(replica
+        .append(&data2, Some(invalid_signature_1))
+        .await
+        .is_err());
+    assert!(replica
+        .append(&data2, Some(invalid_signature_2))
+        .await
+        .is_err());
+    assert!(replica
+        .append(&data2, Some(invalid_signature_3))
+        .await
+        .is_err());
     replica.append(&data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
 

@@ -1,11 +1,11 @@
 //! Generate a `Keypair`, sign and verify messages with `Keypair`.
 //! Uses `Ed25519` cryptography.
 
-use anyhow::{Result, ensure};
-use getrandom::getrandom;
-use rand_chacha::ChaCha20Rng;
-use rand_chacha::rand_core::SeedableRng;
+use anyhow::{ensure, Result};
 use ed25519_dalek::{ExpandedSecretKey, Verifier};
+use getrandom::getrandom;
+use rand_chacha::rand_core::SeedableRng;
+use rand_chacha::ChaCha20Rng;
 
 pub use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature};
 
@@ -23,12 +23,7 @@ pub fn sign(public: &PublicKey, secret: &SecretKey, msg: &[u8]) -> Signature {
 }
 
 /// Verify a signature of a byte slice.
-pub fn verify(
-    public: &PublicKey,
-    msg: &[u8],
-    signature: &Signature,
-    ) -> Result<()>
-{
+pub fn verify(public: &PublicKey, msg: &[u8], signature: &Signature) -> Result<()> {
     ensure!(public.verify(msg, signature).is_ok(), "Signature invalid.");
     Ok(())
 }

@@ -9,15 +9,11 @@
 //! defines interface for managing collection of [Cores],
 //! and specifies [replication] over [protocol].
 
-pub use datacore::{
-    Core, IndexAccess, BlockSignature, Signature,
-    MAX_CORE_LENGTH,
-};
+pub use datacore::{BlockSignature, Core, IndexAccess, Signature, MAX_CORE_LENGTH};
 
 mod key;
 pub use key::{
-    Keypair, PublicKey, SecretKey, DiscoveryKey,
-    generate_keypair, derive_keypair, discovery_key,
+    derive_keypair, discovery_key, generate_keypair, DiscoveryKey, Keypair, PublicKey, SecretKey,
 };
 
 mod iter;

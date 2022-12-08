@@ -17,7 +17,7 @@ impl fmt::Display for EncodeError {
             f,
             "Cannot encode message: Write buffer is full. ({})",
             self.required,
-            )
+        )
     }
 }
 
@@ -225,11 +225,7 @@ impl fmt::Display for Message {
                 "Close(discovery_key: {})",
                 hex::encode(&msg.discovery_key),
             ),
-            Self::Request(msg) => write!(
-                f,
-                "Request(index: {})",
-                msg.index,
-            ),
+            Self::Request(msg) => write!(f, "Request(index: {})", msg.index,),
             Self::Data(msg) => write!(
                 f,
                 "Data(index: {}, data: <{}>, data_signature: <{}>, tree_signature: <{}>)",

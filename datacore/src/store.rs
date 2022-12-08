@@ -1,9 +1,9 @@
 use anyhow::{anyhow, ensure, Result};
-use std::mem::size_of;
 use std::error::Error;
+use std::mem::size_of;
 
 use crate::merkle::NODE_SIZE;
-use crate::{Merkle, Node, IndexAccess};
+use crate::{IndexAccess, Merkle, Node};
 
 const STATE_INDEX: &str = "0";
 
@@ -27,7 +27,8 @@ where
     pub async fn write(&mut self, index: u32, data: &[u8]) -> Result<()> {
         self.store
             .write((index + 1).to_string(), data)
-            .await.map_err(|e| anyhow!(e))
+            .await
+            .map_err(|e| anyhow!(e))
     }
 
     /// Read data for a `Block`.
@@ -35,7 +36,8 @@ where
     pub async fn read(&mut self, index: u32) -> Result<Vec<u8>> {
         self.store
             .read((index + 1).to_string())
-            .await.map_err(|e| anyhow!(e))
+            .await
+            .map_err(|e| anyhow!(e))
     }
 
     /// Write `Merkle` roots.
@@ -51,16 +53,19 @@ where
 
         self.store
             .write(STATE_INDEX.to_owned(), &data)
-            .await.map_err(|e| anyhow!(e))
+            .await
+            .map_err(|e| anyhow!(e))
     }
 
     /// Read roots and reconstruct `Merkle`.
     #[inline]
     pub async fn read_merkle(&mut self) -> Result<Merkle> {
         // try reading length
-        let data = self.store
+        let data = self
+            .store
             .read(STATE_INDEX.to_string())
-            .await.map_err(|e| anyhow!(e));
+            .await
+            .map_err(|e| anyhow!(e));
 
         // init [Merkle] from roots
         let roots = match data {
@@ -71,8 +76,7 @@ where
                 ensure!(data.len() % NODE_SIZE == 0);
                 let length = data.len() / NODE_SIZE;
 
-                let mut roots = Vec::with_capacity(
-                    length as usize * size_of::<Node>());
+                let mut roots = Vec::with_capacity(length as usize * size_of::<Node>());
 
                 let mut start = 0;
                 while start < data.len() {
@@ -82,7 +86,7 @@ where
                     start = end;
                 }
                 roots
-            },
+            }
         };
         Ok(Merkle::from_roots(roots))
     }
@@ -90,9 +94,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use index_access_memory::IndexAccessMemory;
-    use crate::hash::Hash;
     use super::*;
+    use crate::hash::Hash;
+    use index_access_memory::IndexAccessMemory;
 
     #[tokio::test]
     async fn init() -> Result<()> {

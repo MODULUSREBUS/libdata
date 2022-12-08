@@ -1,15 +1,15 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_stream::{Stream, StreamExt};
-use std::task::{Context, Poll};
-use std::pin::Pin;
 
-use crate::Options;
-use crate::noise;
-use crate::message::{FrameType, Frame};
 use crate::io::IO;
+use crate::message::{Frame, FrameType};
+use crate::noise;
+use crate::Options;
 
-use super::{Protocol, ProtocolStage, main};
+use super::{main, Protocol, ProtocolStage};
 
 macro_rules! return_error {
     ($msg:expr) => {
@@ -45,33 +45,24 @@ where
 
         Self {
             io,
-            state: Stage {
-                handshake: None,
-            },
+            state: Stage { handshake: None },
         }
     }
 
     /// Wait for handshake and upgrade to [Protocol<IO>].
     pub async fn handshake(mut self) -> Result<Protocol<T, main::Stage>> {
         if !self.io.options.noise {
-            return Ok(Protocol::<T, main::Stage>::new(
-                self.io,
-                None,
-            ))
+            return Ok(Protocol::<T, main::Stage>::new(self.io, None));
         }
 
         let Event::Handshake(handshake) = self.next().await.unwrap()?;
 
-        Ok(Protocol::<T, main::Stage>::new(
-            self.io,
-            Some(handshake),
-        ))
+        Ok(Protocol::<T, main::Stage>::new(self.io, Some(handshake)))
     }
 
     fn init(&mut self) -> Result<()> {
         if self.io.options.noise {
-            let mut handshake =
-                noise::Handshake::new(self.io.options.is_initiator)?;
+            let mut handshake = noise::Handshake::new(self.io.options.is_initiator)?;
             // If the handshake start returns a buffer, send it now.
             if let Some(buf) = handshake.start()? {
                 self.io.queue_frame(buf.to_vec());
@@ -84,8 +75,7 @@ where
     fn on_handshake_message(&mut self, buf: Vec<u8>) -> Result<()> {
         let mut handshake = match self.state.handshake.take() {
             Some(handshake) => handshake,
-            None => return Err(
-                anyhow!("Handshake empty and received a handshake message")),
+            None => return Err(anyhow!("Handshake empty and received a handshake message")),
         };
 
         if let Some(response_buf) = handshake.read(&buf)? {
@@ -102,18 +92,14 @@ where
             match msg {
                 Some(frame) => match frame {
                     Frame::Raw(buf) => self.on_handshake_message(buf)?,
-                    _ => unreachable!(
-                        "May not receive message frames when not established"),
+                    _ => unreachable!("May not receive message frames when not established"),
                 },
                 None => return Ok(()),
             };
         }
     }
 
-    fn check_handshake_complete(
-        &mut self,
-        ) -> Option<Result<noise::HandshakeResult>>
-    {
+    fn check_handshake_complete(&mut self) -> Option<Result<noise::HandshakeResult>> {
         let handshake = match self.state.handshake.take() {
             Some(handshake) => handshake,
             None => return None,
@@ -133,11 +119,7 @@ where
     T: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
     type Item = Result<Event>;
-    fn poll_next(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        ) -> Poll<Option<Self::Item>>
-    {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
 
         if this.state.handshake.is_none() {
