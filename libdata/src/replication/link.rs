@@ -8,24 +8,23 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio_stream::{Stream, StreamExt};
 
 use crate::replication::{
-    Command, Data, DataOrRequest, Options, ReplicaTrait, ReplicationHandle, Request,
+    Command, Data, DataOrRequest, Options, ReplicaTrait, LinkHandle, Request,
 };
 use crate::{discovery_key, DiscoveryKey};
 use protocol::main::{Event as ProtocolEvent, Stage};
 use protocol::{new_protocol, Message, Protocol};
 
-/// [Replication] event.
+/// [Link] event.
 #[derive(Debug)]
 pub enum Event {
     Command(Command),
     Event(Result<ProtocolEvent>),
 }
 
-/// Replication protocol main abstraction:
-/// handle handshake, multiplexing, failures.
+/// Replication protocol main abstraction: handle handshake, multiplexing, failures.
 ///
 /// Concrete behavior is specified in [ReplicaTrait].
-pub struct Replication<T: 'static>
+pub struct Link<T: 'static>
 where
     T: AsyncWrite + AsyncRead + Send + Unpin,
 {
@@ -33,12 +32,12 @@ where
     command_rx: UnboundedReceiver<Command>,
     replicas: HashMap<DiscoveryKey, Box<dyn ReplicaTrait + Send>>,
 }
-impl<T: 'static> Replication<T>
+impl<T: 'static> Link<T>
 where
     T: AsyncWrite + AsyncRead + Send + Unpin,
 {
-    /// Create `Replication` and wait for protocol handshake.
-    pub async fn new(stream: T, is_initiator: bool) -> Result<(Self, ReplicationHandle)> {
+    /// Create [Link] and wait for protocol handshake.
+    pub async fn new(stream: T, is_initiator: bool) -> Result<(Self, LinkHandle)> {
         Self::with_options(
             stream,
             Options {
@@ -49,10 +48,10 @@ where
         .await
     }
 
-    /// Create `Replication` with [Options] and wait for protocol handshake.
-    pub async fn with_options(stream: T, options: Options) -> Result<(Self, ReplicationHandle)> {
+    /// Create [Link] with [Options] and wait for protocol handshake.
+    pub async fn with_options(stream: T, options: Options) -> Result<(Self, LinkHandle)> {
         let (tx, rx) = unbounded_channel();
-        let handle = ReplicationHandle::new(tx);
+        let handle = LinkHandle::new(tx);
 
         let handshake = new_protocol(stream, options);
         let protocol = handshake.handshake().await?;
@@ -215,7 +214,7 @@ where
         Ok(())
     }
 }
-impl<T: 'static> Stream for Replication<T>
+impl<T: 'static> Stream for Link<T>
 where
     T: AsyncWrite + AsyncRead + Send + Unpin,
 {

@@ -7,9 +7,7 @@ use crate::replication::{Data, DataOrRequest, ReplicaTrait, Request};
 use crate::{BlockSignature, Core, IndexAccess, Signature, MAX_CORE_LENGTH};
 
 /// CoreReplica describes eager, full, and sequential synchronization logic
-/// for [Core] over [Replication].
-///
-/// [Replication]: super::Replication
+/// for replicating [Core] over [Link].
 pub struct CoreReplica<T> {
     core: Arc<Mutex<Core<T>>>,
     remote_index: Option<u32>,

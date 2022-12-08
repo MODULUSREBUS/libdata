@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 use tokio::{task, test, time};
 
 use index_access_memory::IndexAccessMemory;
-use libdata::replication::{CoreReplica, Duplex, Options, Replication, ReplicationHandle};
+use libdata::replication::{CoreReplica, Duplex, Options, Link, LinkHandle};
 use libdata::{generate_keypair, Core, PublicKey};
 
 async fn new_core() -> Result<Core<IndexAccessMemory>> {
@@ -21,17 +21,12 @@ async fn new_core() -> Result<Core<IndexAccessMemory>> {
     .await
 }
 async fn new_replica(key: PublicKey) -> Result<Core<IndexAccessMemory>> {
-    Core::new(
-        IndexAccessMemory::default(),
-        key,
-        None,
-    )
-    .await
+    Core::new(IndexAccessMemory::default(), key, None).await
 }
 
 type ReplicationMemory = (
-    Replication<Duplex<Compat<PipeReader>, Compat<PipeWriter>>>,
-    ReplicationHandle,
+    Link<Duplex<Compat<PipeReader>, Compat<PipeWriter>>>,
+    LinkHandle,
 );
 
 fn create_duplex_pair_memory() -> (
@@ -51,7 +46,7 @@ async fn create_replication_pair_memory() -> (ReplicationMemory, ReplicationMemo
     let (a_stream, b_stream) = create_duplex_pair_memory();
     let (a, b) = zip(
         task::spawn(async move {
-            Replication::with_options(
+            Link::with_options(
                 a_stream,
                 Options {
                     is_initiator: false,
@@ -63,7 +58,7 @@ async fn create_replication_pair_memory() -> (ReplicationMemory, ReplicationMemo
             .unwrap()
         }),
         task::spawn(async move {
-            Replication::with_options(
+            Link::with_options(
                 b_stream,
                 Options {
                     is_initiator: true,

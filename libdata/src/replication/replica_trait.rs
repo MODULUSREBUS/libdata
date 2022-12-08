@@ -12,9 +12,7 @@ pub enum DataOrRequest {
     Request(Request),
 }
 
-/// ReplicaTrait describes the behavior of [Replication].
-///
-/// [Replication]: super::Replication
+/// ReplicaTrait describes the behavior of replication.
 #[async_trait]
 pub trait ReplicaTrait {
     /// Called on connection opened.

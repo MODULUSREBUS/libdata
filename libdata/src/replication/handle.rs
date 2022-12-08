@@ -5,7 +5,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::replication::ReplicaTrait;
 use crate::{discovery_key, DiscoveryKey, PublicKey};
 
-/// [Replication] command.
+/// [Link] command.
 pub enum Command {
     /// Open a new replica.
     Open(PublicKey, Box<dyn ReplicaTrait + Send>),
@@ -13,7 +13,7 @@ pub enum Command {
     ReOpen(DiscoveryKey),
     /// Close a replica.
     Close(DiscoveryKey),
-    /// End the [Replication].
+    /// End the [Link].
     Quit(),
 }
 impl Debug for Command {
@@ -27,13 +27,13 @@ impl Debug for Command {
     }
 }
 
-/// [Replication] handle.
+/// [Link] handle.
 #[derive(Debug, Clone)]
-pub struct ReplicationHandle {
+pub struct LinkHandle {
     tx: UnboundedSender<Command>,
 }
-impl ReplicationHandle {
-    /// Create [ReplicationHandle].
+impl LinkHandle {
+    /// Create [LinkHandle].
     pub fn new(tx: UnboundedSender<Command>) -> Self {
         Self { tx }
     }
@@ -53,7 +53,7 @@ impl ReplicationHandle {
         self.send(Command::Close(key))
     }
 
-    /// End the [Replication].
+    /// End the [Link].
     pub fn quit(&mut self) -> Result<()> {
         self.send(Command::Quit())
     }
