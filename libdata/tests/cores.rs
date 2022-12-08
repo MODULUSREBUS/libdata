@@ -6,14 +6,11 @@ use libdata::{discovery_key, generate_keypair, Core, Cores};
 
 type CoreIAM = Core<IndexAccessMemory, IndexAccessMemory>;
 
-pub fn storage_memory() -> IndexAccessMemory {
-    IndexAccessMemory::new()
-}
 async fn new_core() -> Result<CoreIAM> {
     let keypair = generate_keypair();
     Core::new(
-        storage_memory(),
-        storage_memory(),
+        IndexAccessMemory::default(),
+        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )

@@ -7,16 +7,12 @@ use tokio::test;
 use index_access_memory::IndexAccessMemory;
 use libdata::{generate_keypair, Core, CoreIterator};
 
-pub fn storage_memory() -> IndexAccessMemory {
-    IndexAccessMemory::new()
-}
-
 #[test]
 async fn iter_simple() -> Result<()> {
     let keypair = generate_keypair();
     let mut core = Core::new(
-        storage_memory(),
-        storage_memory(),
+        IndexAccessMemory::default(),
+        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -40,8 +36,8 @@ async fn iter_simple() -> Result<()> {
 async fn iter_offset() -> Result<()> {
     let keypair = generate_keypair();
     let mut core = Core::new(
-        storage_memory(),
-        storage_memory(),
+        IndexAccessMemory::default(),
+        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -64,8 +60,8 @@ async fn iter_offset() -> Result<()> {
 async fn iter_out_of_bounds() -> Result<()> {
     let keypair = generate_keypair();
     let mut core = Core::new(
-        storage_memory(),
-        storage_memory(),
+        IndexAccessMemory::default(),
+        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )

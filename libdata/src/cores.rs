@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::error::Error;
 use std::sync::{Arc, Weak};
 use tokio::sync::Mutex;
 
@@ -10,19 +9,11 @@ type PublicKeyBytes = [u8; 32];
 /// [Cores] is a container for storing and quickly accessing multiple [Core]s.
 ///
 /// Stored [Core]s can be accessed by [PublicKey] or [DiscoveryKey].
-pub struct Cores<T, B>
-where
-    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-{
+pub struct Cores<T, B> {
     by_public: HashMap<PublicKeyBytes, Arc<Mutex<Core<T, B>>>>,
     by_discovery: HashMap<DiscoveryKey, Weak<Mutex<Core<T, B>>>>,
 }
-impl<T, B> Default for Cores<T, B>
-where
-    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-{
+impl<T, B> Default for Cores<T, B> {
     fn default() -> Self {
         Self {
             by_public: HashMap::new(),
@@ -32,8 +23,8 @@ where
 }
 impl<T, B> Cores<T, B>
 where
-    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    T: IndexAccess + Send,
+    B: IndexAccess + Send,
 {
     /// Insert a new [Core].
     #[inline]

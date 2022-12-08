@@ -20,8 +20,8 @@
 //! # async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 //! let keypair = generate_keypair();
 //! let mut core = Core::new(
-//!     IndexAccessMemory::new(),
-//!     IndexAccessMemory::new(),
+//!     IndexAccessMemory::default(),
+//!     IndexAccessMemory::default(),
 //!     keypair.public, Some(keypair.secret)
 //!     ).await?;
 //!

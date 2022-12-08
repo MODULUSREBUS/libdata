@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -11,20 +10,12 @@ use crate::{BlockSignature, Core, IndexAccess, Signature, MAX_CORE_LENGTH};
 /// for [Core] over [Replication].
 ///
 /// [Replication]: super::Replication
-pub struct CoreReplica<T, B>
-where
-    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-{
+pub struct CoreReplica<T, B> {
     core: Arc<Mutex<Core<T, B>>>,
     remote_index: Option<u32>,
 }
 
-impl<T, B> CoreReplica<T, B>
-where
-    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-{
+impl<T, B> CoreReplica<T, B> {
     /// Create a new [CoreReplica].
     pub fn new(core: Arc<Mutex<Core<T, B>>>) -> Self {
         Self {
@@ -45,8 +36,10 @@ where
 #[async_trait]
 impl<T, B> ReplicaTrait for CoreReplica<T, B>
 where
-    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    T: IndexAccess + Send,
+    <T as IndexAccess>::Error: Into<anyhow::Error>,
+    B: IndexAccess + Send,
+    <B as IndexAccess>::Error: Into<anyhow::Error>,
 {
     async fn on_open(&mut self) -> Result<Option<Request>> {
         let core = self.core.lock().await;

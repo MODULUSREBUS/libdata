@@ -7,7 +7,7 @@ use index_access_fs::IndexAccessFs;
 use index_access_memory::IndexAccessMemory;
 
 pub fn storage_memory() -> IndexAccessMemory {
-    IndexAccessMemory::new()
+    IndexAccessMemory::default()
 }
 pub async fn storage_fs(dir: &Path) -> IndexAccessFs {
     IndexAccessFs::new(dir).await.unwrap()

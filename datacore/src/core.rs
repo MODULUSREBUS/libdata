@@ -1,9 +1,8 @@
 //! Main `Core` abstraction.
 //! Exposes an append-only, single-writer, secure log structure.
 
-use anyhow::{bail, ensure, Result};
+use anyhow::{anyhow, bail, ensure, Result};
 use futures_lite::future::zip;
-use std::error::Error;
 
 use crate::merkle::{Merkle, NodeTrait};
 use crate::store::Store;
@@ -63,8 +62,10 @@ impl<D, B> Core<D, B> {
 }
 impl<D, B> Core<D, B>
 where
-    D: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    D: IndexAccess + Send,
+    <D as IndexAccess>::Error: Into<anyhow::Error>,
+    B: IndexAccess + Send,
+    <B as IndexAccess>::Error: Into<anyhow::Error>,
 {
     /// Create a new instance with a custom storage backend.
     pub async fn new(
@@ -82,7 +83,10 @@ where
             0 => 0,
             n => {
                 let block = blocks.read(n - 1).await?;
-                block.offset() as u64 + block.length() as u64
+                match block {
+                    Some(block) => block.offset() as u64 + block.length() as u64,
+                    None => bail!("Missing expected block."),
+                }
             }
         };
 
@@ -164,8 +168,8 @@ where
         if index >= length {
             return Ok(None);
         }
-        let block = self.blocks.read(index).await?;
-        let data = self.store.read(index).await?;
+        let block = self.blocks.read(index).await?.ok_or(anyhow!("Missing expected block"))?;
+        let data = self.store.read(index).await?.ok_or(anyhow!("Missing expected data"))?;
         Ok(Some((data, block.signature())))
     }
 }

@@ -1,7 +1,6 @@
 use anyhow::Result;
 use futures_lite::future::FutureExt;
 use futures_lite::stream::Stream;
-use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -21,8 +20,10 @@ where
 }
 impl<T: 'static, B: 'static> CoreIterator<T, B>
 where
-    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    T: IndexAccess + Send,
+    <T as IndexAccess>::Error: Into<anyhow::Error>,
+    B: IndexAccess + Send,
+    <B as IndexAccess>::Error: Into<anyhow::Error>,
 {
     /// Create a new [CoreIterator].
     pub fn new(core: Arc<Mutex<Core<T, B>>>, index: u32) -> Self {
@@ -52,8 +53,10 @@ where
 }
 impl<T: 'static, B: 'static> Stream for CoreIterator<T, B>
 where
-    T: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
-    B: IndexAccess<Error = Box<dyn Error + Send + Sync>> + Send,
+    T: IndexAccess + Send,
+    <T as IndexAccess>::Error: Into<anyhow::Error>,
+    B: IndexAccess + Send,
+    <B as IndexAccess>::Error: Into<anyhow::Error>,
 {
     type Item = (u32, Vec<u8>);
 
