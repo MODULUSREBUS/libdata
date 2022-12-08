@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 use tokio::{task, test, time};
 
 use index_access_memory::IndexAccessMemory;
-use libdata::replication::{CoreReplica, Duplex, Options, Link, LinkHandle};
+use libdata::replication::{CoreReplica, Duplex, Handle, Link, Options};
 use libdata::{generate_keypair, Core, PublicKey};
 
 async fn new_core() -> Result<Core<IndexAccessMemory>> {
@@ -24,15 +24,10 @@ async fn new_replica(key: PublicKey) -> Result<Core<IndexAccessMemory>> {
     Core::new(IndexAccessMemory::default(), key, None).await
 }
 
-type ReplicationMemory = (
-    Link<Duplex<Compat<PipeReader>, Compat<PipeWriter>>>,
-    LinkHandle,
-);
+type Transfer = Duplex<Compat<PipeReader>, Compat<PipeWriter>>;
+type Replication = (Link<Transfer>, Handle);
 
-fn create_duplex_pair_memory() -> (
-    Duplex<Compat<PipeReader>, Compat<PipeWriter>>,
-    Duplex<Compat<PipeReader>, Compat<PipeWriter>>,
-) {
+fn create_duplex_pair_memory() -> (Transfer, Transfer) {
     let (ar, bw) = pipe();
     let (br, aw) = pipe();
     (
@@ -40,7 +35,7 @@ fn create_duplex_pair_memory() -> (
         Duplex::new(br.compat(), bw.compat()),
     )
 }
-async fn create_replication_pair_memory() -> (ReplicationMemory, ReplicationMemory) {
+async fn create_replication_pair_memory() -> (Replication, Replication) {
     const KEEPALIVE_MS: u64 = 500;
 
     let (a_stream, b_stream) = create_duplex_pair_memory();

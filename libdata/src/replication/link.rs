@@ -8,11 +8,11 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio_stream::{Stream, StreamExt};
 
 use crate::replication::{
-    Command, Data, DataOrRequest, Options, ReplicaTrait, LinkHandle, Request,
+    Command, Data, DataOrRequest, Options, ReplicaTrait, Handle, Request,
 };
 use crate::{discovery_key, DiscoveryKey};
 use protocol::main::{Event as ProtocolEvent, Stage};
-use protocol::{new_protocol, Message, Protocol};
+use protocol::{self, Message, Protocol};
 
 /// [Link] event.
 #[derive(Debug)]
@@ -37,7 +37,7 @@ where
     T: AsyncWrite + AsyncRead + Send + Unpin,
 {
     /// Create [Link] and wait for protocol handshake.
-    pub async fn new(stream: T, is_initiator: bool) -> Result<(Self, LinkHandle)> {
+    pub async fn new(stream: T, is_initiator: bool) -> Result<(Self, Handle)> {
         Self::with_options(
             stream,
             Options {
@@ -49,11 +49,11 @@ where
     }
 
     /// Create [Link] with [Options] and wait for protocol handshake.
-    pub async fn with_options(stream: T, options: Options) -> Result<(Self, LinkHandle)> {
+    pub async fn with_options(stream: T, options: Options) -> Result<(Self, Handle)> {
         let (tx, rx) = unbounded_channel();
-        let handle = LinkHandle::new(tx);
+        let handle = Handle::new(tx);
 
-        let handshake = new_protocol(stream, options);
+        let handshake = protocol::new(stream, options);
         let protocol = handshake.handshake().await?;
 
         let replication = Self {
@@ -80,7 +80,7 @@ where
         F: Future<Output = Result<()>>,
     {
         loop {
-            match self.next().await.unwrap() {
+            match self.next().await.ok_or_else(|| anyhow!("broken link"))? {
                 Event::Command(cmd) => {
                     if !self.handle_command(cmd).await? {
                         return Ok(());
@@ -102,7 +102,7 @@ where
             Command::Open(key, replica) => {
                 let discovery = discovery_key(&key.to_bytes());
                 self.replicas.insert(discovery, replica);
-                self.protocol.open(key.to_bytes()).await?;
+                self.protocol.open(key.to_bytes())?;
                 Ok(true)
             }
             Command::ReOpen(key) => {
@@ -116,12 +116,13 @@ where
             }
             Command::Quit() => {
                 let mut is_error = false;
-                for (_, replica) in self.replicas.iter_mut() {
+                for replica in self.replicas.values_mut() {
                     is_error |= replica.on_close().await.is_err();
                 }
-                match is_error {
-                    true => Err(anyhow!("Quit before replication finished.")),
-                    false => Ok(false),
+                if is_error {
+                    Err(anyhow!("Quit before replication finished."))
+                } else {
+                    Ok(false)
                 }
             }
         }
@@ -141,13 +142,14 @@ where
             Ok(msg) => msg,
             Err(err) => {
                 let mut is_error = false;
-                for (_, replica) in self.replicas.iter_mut() {
+                for replica in self.replicas.values_mut() {
                     is_error |= replica.on_close().await.is_err();
                 }
-                return match is_error {
-                    true => Err(err),
-                    false => Ok(false),
-                };
+                return if is_error {
+                    Err(err)
+                } else {
+                    Ok(false)
+                }
             }
         };
 

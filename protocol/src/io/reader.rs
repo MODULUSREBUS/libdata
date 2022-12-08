@@ -36,6 +36,7 @@ pub struct ReadState {
 }
 
 impl ReadState {
+    #[inline]
     pub fn new(timeout_ms: Option<u64>) -> Self {
         let timeout_duration = timeout_ms.map(Duration::from_millis);
         Self {
@@ -49,15 +50,18 @@ impl ReadState {
         }
     }
 
+    #[inline]
     pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) {
         let mut cipher = Cipher::from_handshake_rx(handshake);
         cipher.apply(&mut self.buf[..self.end]);
         self.cipher = Some(cipher);
     }
+    #[inline]
     pub fn set_frame_type(&mut self, frame_type: FrameType) {
         self.frame_type = frame_type;
     }
 
+    #[inline]
     pub fn poll_reader<R>(
         &mut self,
         cx: &mut Context<'_>,
@@ -107,6 +111,7 @@ impl ReadState {
         }
     }
 
+    #[inline]
     fn process(&mut self) -> Option<Result<Frame>> {
         if self.end == 0 {
             return None;
@@ -139,16 +144,15 @@ impl ReadState {
 
                     if self.end < message_len {
                         return None;
-                    } else {
-                        let frame =
-                            Frame::decode(&self.buf[header_len..message_len], &self.frame_type);
-                        if self.end > message_len {
-                            self.buf.copy_within(message_len..self.end, 0);
-                        }
-                        self.end -= message_len;
-                        self.step = Step::Header;
-                        return Some(frame);
                     }
+
+                    let frame = Frame::decode(&self.buf[header_len..message_len], &self.frame_type);
+                    if self.end > message_len {
+                        self.buf.copy_within(message_len..self.end, 0);
+                    }
+                    self.end -= message_len;
+                    self.step = Step::Header;
+                    return Some(frame);
                 }
             }
         }

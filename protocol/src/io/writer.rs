@@ -41,17 +41,17 @@ impl Default for WriteState {
     }
 }
 impl WriteState {
+    #[inline]
     pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) {
         self.cipher = Some(Cipher::from_handshake_tx(handshake));
     }
 
-    pub fn queue_frame<F>(&mut self, frame: F)
-    where
-        F: Into<Frame>,
-    {
-        self.queue.push_back(frame.into())
+    #[inline]
+    pub fn queue_frame<F: Into<Frame>>(&mut self, frame: F) {
+        self.queue.push_back(frame.into());
     }
 
+    #[inline]
     fn try_queue_direct<T: Encoder>(
         &mut self,
         frame: &T,
@@ -75,13 +75,16 @@ impl WriteState {
         Ok(true)
     }
 
+    #[inline]
     fn remaining(&self) -> usize {
         self.buf.len() - self.end
     }
+    #[inline]
     fn pending(&self) -> usize {
         self.end - self.start
     }
 
+    #[inline]
     pub fn poll_send<W>(&mut self, cx: &mut Context<'_>, mut writer: &mut W) -> Poll<Result<()>>
     where
         W: AsyncWrite + Unpin,

@@ -18,6 +18,7 @@ pub struct Options {
 
 impl Options {
     /// Create with default options.
+    #[must_use]
     pub fn new(is_initiator: bool) -> Self {
         Self {
             is_initiator,

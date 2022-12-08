@@ -103,6 +103,7 @@ impl Default for Merkle {
 }
 impl Merkle {
     /// Create a [Merkle] from root [Node]s.
+    #[must_use]
     #[inline]
     pub fn from_roots(roots: Vec<Node>) -> Self {
         Self {
@@ -117,18 +118,21 @@ impl Merkle {
     }
 
     /// Get the roots vector.
+    #[must_use]
     #[inline]
     pub fn roots(&self) -> &Vec<Node> {
         self.stream.roots()
     }
 
     /// Get a vector of roots `Hash`'s'.
+    #[must_use]
     #[inline]
     pub fn roots_hashes(&self) -> Vec<&Hash> {
         self.stream.roots().iter().map(|node| &node.hash).collect()
     }
 
     /// Get number of blocks.
+    #[must_use]
     #[inline]
     pub fn blocks(&self) -> u64 {
         self.stream.blocks()

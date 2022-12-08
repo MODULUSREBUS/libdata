@@ -15,6 +15,7 @@ pub struct CoreReplica<T> {
 
 impl<T> CoreReplica<T> {
     /// Create a new [CoreReplica].
+    #[must_use]
     pub fn new(core: Arc<Mutex<Core<T>>>) -> Self {
         Self {
             core,
@@ -47,8 +48,8 @@ where
 
         let mut core = self.core.lock().await;
         let data = core.get(request.index).await?;
-        Ok(match data {
-            Some((data, signature)) => {
+        Ok(
+            if let Some((data, signature)) = data {
                 let response = Data {
                     index: request.index,
                     data,
@@ -56,8 +57,7 @@ where
                     tree_signature: signature.tree().to_bytes().to_vec(),
                 };
                 Some(DataOrRequest::Data(response))
-            }
-            None => {
+            } else {
                 let index = core.len();
                 let remote_index = self.remote_index.unwrap_or(0);
                 if index as usize >= MAX_CORE_LENGTH || remote_index <= index {
@@ -67,7 +67,7 @@ where
                     Some(DataOrRequest::Request(response))
                 }
             }
-        })
+        )
     }
     async fn on_data(&mut self, data: Data) -> Result<Option<Request>> {
         let mut core = self.core.lock().await;

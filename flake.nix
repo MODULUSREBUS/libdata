@@ -39,8 +39,11 @@
             name = "clippy";
             category = "rust";
             help = "rust linter";
-            command = "cargo clippy";
-            # command = "cargo clippy -- -W clippy::pedantic -A clippy::doc_markdown -A clippy::missing_errors_doc";
+            command = ''cargo clippy -- \
+              -W clippy::pedantic \
+              -A clippy::doc_markdown \
+              -A clippy::missing_errors_doc
+            '';
           }
         ];
         env = [

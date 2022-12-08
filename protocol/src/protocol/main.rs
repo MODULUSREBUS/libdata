@@ -8,13 +8,13 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 use tokio_stream::Stream;
 
-use crate::channels::ChannelMap;
+use crate::channels::{ChannelHandle, ChannelMap};
 use crate::io::IO;
-use crate::message::{ChannelMessage, Frame, FrameType};
-use crate::schema::*;
+use crate::message::{ChannelMessage, Frame};
+use crate::schema::{Close, Data, Open, Request};
 use crate::{noise, DiscoveryKey, Key, Message};
 
-use super::{Protocol, ProtocolStage};
+use super::Protocol;
 
 macro_rules! return_error {
     ($msg:expr) => {
@@ -25,7 +25,7 @@ macro_rules! return_error {
 }
 
 #[inline]
-fn map_channel_err<T>(err: mpsc::error::SendError<T>) -> Error {
+fn map_channel_err<T>(err: &mpsc::error::SendError<T>) -> Error {
     Error::new(
         ErrorKind::BrokenPipe,
         format!("Cannot forward on channel: {}", err),
@@ -57,22 +57,14 @@ pub struct Stage {
     outbound_tx: mpsc::UnboundedSender<ChannelMessage>,
     queued_events: VecDeque<Event>,
 }
-impl ProtocolStage for Stage {}
+impl super::Stage for Stage {}
 
 impl<T> Protocol<T, Stage>
 where
     T: AsyncWrite + AsyncRead + Send + Unpin + 'static,
 {
     /// Create a new [Protocol] after completing the handshake.
-    pub fn new(mut io: IO<T>, result: Option<noise::HandshakeResult>) -> Self {
-        // setup core
-        if io.options.encrypted && result.is_some() {
-            let handshake = result.as_ref().unwrap();
-            io.read_state.upgrade_with_handshake(handshake);
-            io.write_state.upgrade_with_handshake(handshake);
-        }
-        io.read_state.set_frame_type(FrameType::Message);
-
+    pub fn new(io: IO<T>, result: Option<noise::HandshakeResult>) -> Self {
         // setup channels
         let (outbound_tx, outbound_rx) = mpsc::unbounded_channel();
 
@@ -89,11 +81,13 @@ where
     }
 
     /// Open a new protocol channel.
-    pub async fn open(&mut self, key: Key) -> Result<()> {
+    pub fn open(&mut self, key: Key) -> Result<()> {
         // Create a new channel.
         let channel_handle = self.state.channels.attach_local(key);
         // Safe because attach_local always puts Some(local_id)
-        let local_id = channel_handle.local_id().unwrap();
+        let local_id = channel_handle
+            .local_id()
+            .ok_or_else(|| anyhow!("channel is missing a local id"))?;
         let discovery_key = *channel_handle.discovery_key();
 
         // If the channel was already opened from the remote end, verify,
@@ -111,9 +105,7 @@ where
             capability,
         });
         let channel_message = ChannelMessage::new(local_id as u64, message);
-        self.io
-            .write_state
-            .queue_frame(Frame::Message(channel_message));
+        self.io.queue_frame(Frame::Message(channel_message));
         Ok(())
     }
 
@@ -135,7 +127,7 @@ where
                 if channel.is_connected() {
                     let local_id = channel.local_id().unwrap();
                     let msg = ChannelMessage::new(local_id as u64, msg);
-                    self.state.outbound_tx.send(msg).map_err(map_channel_err)?;
+                    self.state.outbound_tx.send(msg).map_err(|e| map_channel_err(&e))?;
                 }
                 Ok(())
             }
@@ -159,7 +151,7 @@ where
             match msg {
                 Some(frame) => match frame {
                     Frame::Message(msg) => self.on_inbound_message(msg)?,
-                    _ => unreachable!("May not receive raw frames after handshake"),
+                    Frame::Raw(_) => unreachable!("May not receive raw frames after handshake"),
                 },
                 None => return Ok(()),
             };
@@ -173,8 +165,7 @@ where
             match Pin::new(&mut self.state.outbound_rx).poll_recv(cx) {
                 Poll::Ready(Some(message)) => {
                     self.on_outbound_message(&message);
-                    let frame = Frame::Message(message);
-                    self.io.write_state.queue_frame(frame);
+                    self.io.queue_frame(Frame::Message(message));
                 }
                 Poll::Ready(None) => unreachable!("Channel closed before end"),
                 Poll::Pending => return Ok(()),
@@ -201,14 +192,14 @@ where
             // Any other Id is a regular channel message.
             _ => match message {
                 Message::Open(msg) => self.on_open(remote_id, msg)?,
-                Message::Close(msg) => self.on_close(remote_id, msg)?,
+                Message::Close(msg) => self.on_close(remote_id, &msg),
                 _ => {
                     // Emit [Event::Message].
                     let discovery_key = self
                         .state
                         .channels
                         .get_remote(remote_id as usize)
-                        .map(|remote| remote.discovery_key());
+                        .map(ChannelHandle::discovery_key);
                     if let Some(discovery_key) = discovery_key {
                         self.queue_event(Event::Message(*discovery_key, message));
                     }
@@ -246,7 +237,7 @@ where
         }
     }
 
-    fn on_close(&mut self, remote_id: u64, msg: Close) -> Result<()> {
+    fn on_close(&mut self, remote_id: u64, msg: &Close) {
         let remote = self.state.channels.get_remote(remote_id as usize);
         if let Some(channel_handle) = remote {
             let discovery_key = *channel_handle.discovery_key();
@@ -255,7 +246,6 @@ where
                 self.queue_event(Event::Close(discovery_key));
             }
         }
-        Ok(())
     }
 
     fn queue_event(&mut self, event: Event) {
@@ -263,10 +253,10 @@ where
     }
 
     fn capability(&self, key: &[u8]) -> Option<Vec<u8>> {
-        match self.state.handshake.as_ref() {
-            Some(handshake) => handshake.capability(key),
-            None => None,
-        }
+        self.state
+            .handshake
+            .as_ref()
+            .map(|handshake| handshake.capability(key))
     }
 
     fn verify_remote_capability(&self, capability: Option<Vec<u8>>, key: &[u8]) -> Result<()> {
@@ -287,6 +277,7 @@ where
     T: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
     type Item = Result<Event>;
+
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
 

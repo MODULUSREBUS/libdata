@@ -11,7 +11,7 @@ use tokio::test;
 use tokio::time::sleep;
 use tokio_stream::Stream;
 
-use protocol::{main::Event, new_protocol, Options};
+use protocol::{self, main::Event, Options};
 
 #[test]
 async fn timeout_no_connection() -> Result<()> {
@@ -20,7 +20,7 @@ async fn timeout_no_connection() -> Result<()> {
     let mut cx = Context::from_waker(&waker);
 
     let (a, b) = create_duplex_pair_memory();
-    let mut proto_a = new_protocol(
+    let mut proto_a = protocol::new(
         a,
         Options {
             is_initiator: true,
@@ -97,7 +97,7 @@ async fn timeout_reading_resets_timeout_writing_not() -> Result<()> {
     let (mut proto_a, mut proto_b) = establish(proto_a, proto_b).await;
 
     sleep(Duration::from_millis(30)).await;
-    proto_a.open(key.clone()).await?;
+    proto_a.open(key.clone())?;
     assert!(matches!(
         Pin::new(&mut proto_a).poll_next(&mut cx),
         Poll::Pending
@@ -108,7 +108,7 @@ async fn timeout_reading_resets_timeout_writing_not() -> Result<()> {
     ));
 
     sleep(Duration::from_millis(30)).await;
-    proto_a.open(key.clone()).await?;
+    proto_a.open(key.clone())?;
     assert!(matches!(
         Pin::new(&mut proto_a).poll_next(&mut cx),
         Poll::Pending

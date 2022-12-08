@@ -14,19 +14,22 @@ pub struct BlockSignature {
 
 impl BlockSignature {
     /// Create a new [BlockSignature].
+    #[must_use]
     #[inline]
     pub fn new(data: Signature, tree: Signature) -> Self {
         Self { data, tree }
     }
 
     /// Get data [Signature].
-    pub fn data(&self) -> Signature {
-        self.data
+    #[must_use]
+    pub fn data(&self) -> &Signature {
+        &self.data
     }
 
     /// Get tree [Signature].
-    pub fn tree(&self) -> Signature {
-        self.tree
+    #[must_use]
+    pub fn tree(&self) -> &Signature {
+        &self.tree
     }
 }
 
@@ -45,6 +48,7 @@ pub const BLOCK_LENGTH: usize = size_of::<u64>() + size_of::<u32>() + (2 * SIGNA
 
 impl Block {
     /// Create a new [Block].
+    #[must_use]
     #[inline]
     pub fn new(offset: u64, length: u32, signature: BlockSignature) -> Self {
         Self {
@@ -91,16 +95,19 @@ impl Block {
     }
 
     /// Get the offset of the content of this [Block].
+    #[must_use]
     #[inline]
     pub fn offset(&self) -> u64 {
         self.offset
     }
     /// Get the length of content of this [Block].
+    #[must_use]
     #[inline]
     pub fn length(&self) -> u32 {
         self.length
     }
     /// Get the [BlockSignature] of this [Block].
+    #[must_use]
     #[inline]
     pub fn signature(&self) -> BlockSignature {
         self.signature.clone()
@@ -136,8 +143,8 @@ mod tests {
         let data = Signature::from_bytes(&[2u8; SIGNATURE_LENGTH])?;
         let tree = Signature::from_bytes(&[7u8; SIGNATURE_LENGTH])?;
         let signature = BlockSignature::new(data, tree);
-        assert_eq!(signature.data(), data);
-        assert_eq!(signature.tree(), tree);
+        assert_eq!(*signature.data(), data);
+        assert_eq!(*signature.tree(), tree);
         Ok(())
     }
 }

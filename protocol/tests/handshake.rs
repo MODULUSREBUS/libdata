@@ -4,14 +4,14 @@ use common::{create_duplex_pair_memory, create_pair_memory, create_pair_tcp, est
 use anyhow::Result;
 use tokio::{task, test};
 
-use protocol::{new_protocol, new_protocol_with_defaults, Options};
+use protocol::{self, Options};
 
 #[test]
 async fn test_handshake() -> Result<()> {
     let (proto_a, proto_b) = create_duplex_pair_memory();
 
-    let b = new_protocol_with_defaults(proto_b, false);
-    let a = new_protocol_with_defaults(proto_a, true);
+    let b = protocol::default(proto_b, false);
+    let a = protocol::default(proto_a, true);
 
     let task_a = task::spawn(async move { a.handshake().await.unwrap() });
     let task_b = task::spawn(async move { b.handshake().await.unwrap() });
@@ -25,7 +25,7 @@ async fn test_handshake() -> Result<()> {
 async fn test_handshake_disabled() -> Result<()> {
     let (proto_a, proto_b) = create_duplex_pair_memory();
 
-    let b = new_protocol(
+    let b = protocol::new(
         proto_b,
         Options {
             is_initiator: false,
@@ -33,7 +33,7 @@ async fn test_handshake_disabled() -> Result<()> {
             ..Options::default()
         },
     );
-    let a = new_protocol(
+    let a = protocol::new(
         proto_a,
         Options {
             is_initiator: true,

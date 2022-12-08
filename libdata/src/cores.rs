@@ -33,30 +33,35 @@ impl<T: IndexAccess + Send> Cores<T> {
     }
 
     /// Try getting a [Core] by [PublicKey].
+    #[must_use]
     #[inline]
     pub fn get_by_public(&self, key: &PublicKey) -> Option<Arc<Mutex<Core<T>>>> {
         self.by_public.get(&key.to_bytes()).map(Arc::clone)
     }
 
     /// Try getting a [Core] by [DiscoveryKey].
+    #[must_use]
     #[inline]
     pub fn get_by_discovery(&self, key: &DiscoveryKey) -> Option<Arc<Mutex<Core<T>>>> {
-        self.by_discovery.get(key).and_then(|weak| weak.upgrade())
+        self.by_discovery.get(key).and_then(std::sync::Weak::upgrade)
     }
 
     /// Returns the number of contained [Core]s.
+    #[must_use]
     #[inline]
     pub fn len(&self) -> usize {
         self.by_public.len()
     }
 
     /// Checks if [Cores] is empty.
+    #[must_use]
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.by_public.len() == 0
     }
 
     /// Get the [PublicKey]s of all stored [Core]s in an arbitrary order.
+    #[must_use]
     #[inline]
     pub fn public_keys(&self) -> Vec<PublicKey> {
         self.by_public
@@ -66,12 +71,14 @@ impl<T: IndexAccess + Send> Cores<T> {
     }
 
     /// Get the [DiscoveryKey]s of all stored [Core]s in an arbitrary order.
+    #[must_use]
     #[inline]
     pub fn discovery_keys(&self) -> Vec<DiscoveryKey> {
         self.by_public.keys().map(discovery_key).collect()
     }
 
     /// Access the contained [Core]s.
+    #[must_use]
     #[inline]
     pub fn entries(&self) -> Vec<(PublicKey, Arc<Mutex<Core<T>>>)> {
         self.by_public

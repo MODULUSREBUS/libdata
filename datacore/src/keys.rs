@@ -10,6 +10,7 @@ use rand_chacha::ChaCha20Rng;
 pub use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature};
 
 /// Create a new [Keypair].
+#[must_use]
 pub fn generate_keypair() -> Keypair {
     let mut seed: <ChaCha20Rng as SeedableRng>::Seed = Default::default();
     getrandom(&mut seed).expect("Could not seed RNG");
@@ -18,6 +19,7 @@ pub fn generate_keypair() -> Keypair {
 }
 
 /// Sign a byte slice.
+#[must_use]
 pub fn sign(public: &PublicKey, secret: &SecretKey, msg: &[u8]) -> Signature {
     ExpandedSecretKey::from(secret).sign(msg, public)
 }

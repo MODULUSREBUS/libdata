@@ -21,6 +21,7 @@ pub struct Hash {
 
 impl Hash {
     /// Hash data to form a leaf `Hash`.
+    #[must_use]
     #[inline]
     pub fn from_leaf(data: &[u8]) -> Self {
         let length = data.len() as u64;
@@ -35,6 +36,7 @@ impl Hash {
     }
 
     /// Hash two `Hash` together to form a parent `Hash`.
+    #[must_use]
     #[inline]
     pub fn from_hashes(left: &Hash, right: &Hash, length: u64) -> Self {
         let mut hasher = Hasher::new();
@@ -48,6 +50,7 @@ impl Hash {
     }
 
     /// Hash a vector of `Root` nodes.
+    #[must_use]
     #[inline]
     pub fn from_roots(roots: &[&Hash], lengths: &[u64]) -> Self {
         let mut hasher = Hasher::new();
@@ -63,6 +66,7 @@ impl Hash {
     }
 
     /// Returns a byte slice of this `Hash`.
+    #[must_use]
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         &self.hash
@@ -72,7 +76,7 @@ impl Hash {
     #[inline]
     pub fn from_bytes(data: &[u8]) -> Result<Self> {
         ensure!(data.len() == HASH_SIZE);
-        let hash = data.try_into().unwrap();
+        let hash: [u8; HASH_SIZE] = data.try_into()?;
         Ok(Self { hash })
     }
 }

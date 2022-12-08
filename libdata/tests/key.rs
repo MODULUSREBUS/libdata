@@ -5,13 +5,13 @@ use libdata::{derive_keypair, generate_keypair, SecretKey};
 
 #[test]
 fn key_can_generate() {
-    generate_keypair();
+    let _keypair = generate_keypair();
 }
 
 #[test]
 fn key_can_derive() {
     let keypair = generate_keypair();
-    derive_keypair(&keypair.secret, "hello");
+    let _derived = derive_keypair(&keypair.secret, "hello");
 }
 
 quickcheck! {

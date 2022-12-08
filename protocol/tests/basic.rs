@@ -26,14 +26,14 @@ async fn basic_protocol() -> anyhow::Result<()> {
         task::spawn(async move {
             let discovery = discovery_key(&key);
             if is_initiator {
-                proto.open(key).await?;
+                proto.open(key)?;
             }
             loop {
                 let msg = proto.next().await.unwrap().unwrap();
                 match msg {
                     DiscoveryKey(remote_discovery) => {
                         if remote_discovery == discovery {
-                            proto.open(key).await?;
+                            proto.open(key)?;
                         }
                     }
                     Open(remote_discovery) => {
@@ -78,7 +78,7 @@ async fn basic_protocol_both_open() -> anyhow::Result<()> {
     {
         task::spawn(async move {
             let discovery = discovery_key(&key);
-            proto.open(key).await?;
+            proto.open(key)?;
             loop {
                 let msg = proto.next().await.unwrap().unwrap();
                 match msg {

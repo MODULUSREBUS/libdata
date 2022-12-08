@@ -5,8 +5,8 @@ use std::path::Path;
 use tempfile;
 use tokio::test;
 
-use index_access_fs::IndexAccessFs;
 use datacore::{Core, Keypair};
+use index_access_fs::IndexAccessFs;
 
 fn read_bytes(dir: &Path, s: &str) -> Vec<u8> {
     let mut f = File::open(dir.join(s)).unwrap();

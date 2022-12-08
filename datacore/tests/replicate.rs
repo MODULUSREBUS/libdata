@@ -251,7 +251,7 @@ pub async fn replicate_fail_verify_then_append() {
     replica.append(&data1, Some(signature)).await.unwrap();
     let (data2, signature) = core.get(1).await.unwrap().unwrap();
     let invalid_signature_1 = BlockSignature::new(
-        signature.data(),
+        *signature.data(),
         Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap(),
     );
     let invalid_signature_2 = BlockSignature::new(
@@ -260,7 +260,7 @@ pub async fn replicate_fail_verify_then_append() {
     );
     let invalid_signature_3 = BlockSignature::new(
         Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap(),
-        signature.tree(),
+        *signature.tree(),
     );
     assert!(replica
         .append(&data2, Some(invalid_signature_1))

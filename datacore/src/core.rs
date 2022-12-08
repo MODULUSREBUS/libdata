@@ -3,7 +3,8 @@
 
 use anyhow::{bail, ensure, Result};
 
-use crate::merkle::{Merkle, NodeTrait};
+use crate::merkle::Merkle;
+use crate::merkle_tree_stream::Node;
 use crate::store::Store;
 use crate::{sign, verify, Block, BlockSignature, Hash, IndexAccess, PublicKey, SecretKey};
 
@@ -77,7 +78,7 @@ where
             n => {
                 let block = store.read(n - 1).await?;
                 match block {
-                    Some((_, block)) => block.offset() as u64 + block.length() as u64,
+                    Some((_, block)) => block.offset() + u64::from(block.length()),
                     None => bail!("Missing expected block."),
                 }
             }
@@ -104,27 +105,24 @@ where
         ensure!(data_length <= MAX_BLOCK_SIZE);
 
         // get or try to create the `signature`
-        let signature = match signature {
-            Some(signature) => {
-                let data_hash = Hash::from_leaf(data);
-                verify(&self.public_key, &data_hash, &signature.data())?;
-                let mut merkle = self.merkle.clone();
-                merkle.next(data_hash, data_length as u64);
-                verify(&self.public_key, &hash_merkle(&merkle), &signature.tree())?;
-                self.merkle = merkle;
-                signature
-            }
-            None => {
-                let secret = match &self.secret_key {
-                    Some(secret) => secret,
-                    None => bail!("No SecretKey for Core, cannot append."),
-                };
-                let data_hash = Hash::from_leaf(data);
-                let data_sign = sign(&self.public_key, secret, &data_hash);
-                self.merkle.next(data_hash, data_length as u64);
-                let tree_sign = sign(&self.public_key, secret, &hash_merkle(&self.merkle));
-                BlockSignature::new(data_sign, tree_sign)
-            }
+        let signature = if let Some(signature) = signature {
+            let data_hash = Hash::from_leaf(data);
+            verify(&self.public_key, &data_hash, signature.data())?;
+            let mut merkle = self.merkle.clone();
+            merkle.next(data_hash, data_length as u64);
+            verify(&self.public_key, &hash_merkle(&merkle), signature.tree())?;
+            self.merkle = merkle;
+            signature
+        } else {
+            let secret = match &self.secret_key {
+                Some(secret) => secret,
+                None => bail!("No SecretKey for Core, cannot append."),
+            };
+            let data_hash = Hash::from_leaf(data);
+            let data_sign = sign(&self.public_key, secret, &data_hash);
+            self.merkle.next(data_hash, data_length as u64);
+            let tree_sign = sign(&self.public_key, secret, &hash_merkle(&self.merkle));
+            BlockSignature::new(data_sign, tree_sign)
         };
 
         let block = Block::new(self.byte_length, data_length as u32, signature);
@@ -165,8 +163,8 @@ where
 #[inline]
 fn hash_merkle(merkle: &Merkle) -> Hash {
     let roots = merkle.roots();
-    let hashes = roots.iter().map(|root| root.hash()).collect::<Vec<&Hash>>();
-    let lengths = roots.iter().map(|root| root.length()).collect::<Vec<u64>>();
+    let hashes = roots.iter().map(Node::hash).collect::<Vec<&Hash>>();
+    let lengths = roots.iter().map(Node::length).collect::<Vec<u64>>();
     Hash::from_roots(&hashes, &lengths)
 }
 

@@ -1,15 +1,23 @@
 use blake2_rfc::blake2b::Blake2b;
 use getrandom::getrandom;
 use prost::Message;
-pub use snow::Keypair;
 use snow::{Builder, Error as SnowError, HandshakeState};
 use std::io::{Error, ErrorKind, Result};
 
-use super::super::schema::NoisePayload;
 use super::CAP_NS_BUF;
+use crate::schema::NoisePayload;
+
+pub use snow::Keypair;
 
 const CIPHER_KEY_LENGTH: usize = 32;
 const HANDSHAKE_PATTERN: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2b";
+
+fn wrap_error(e: &SnowError) -> Error {
+    Error::new(
+        ErrorKind::PermissionDenied,
+        format!("handshake error: {}", e),
+    )
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct HandshakeResult {
@@ -24,36 +32,40 @@ pub struct HandshakeResult {
 }
 
 impl HandshakeResult {
-    pub fn capability(&self, key: &[u8]) -> Option<Vec<u8>> {
+    pub fn capability(&self, key: &[u8]) -> Vec<u8> {
         let mut context = Blake2b::with_key(32, &self.split_rx[..32]);
         context.update(CAP_NS_BUF);
         context.update(&self.split_tx[..32]);
         context.update(key);
         let hash = context.finalize();
-        Some(hash.as_bytes().to_vec())
+        hash.as_bytes().to_vec()
     }
 
-    pub fn remote_capability(&self, key: &[u8]) -> Option<Vec<u8>> {
+    pub fn remote_capability(&self, key: &[u8]) -> Vec<u8> {
         let mut context = Blake2b::with_key(32, &self.split_tx[..32]);
         context.update(CAP_NS_BUF);
         context.update(&self.split_rx[..32]);
         context.update(key);
         let hash = context.finalize();
-        Some(hash.as_bytes().to_vec())
+        hash.as_bytes().to_vec()
     }
 
     pub fn verify_remote_capability(&self, capability: Option<Vec<u8>>, key: &[u8]) -> Result<()> {
         let expected_capability = self.remote_capability(key);
-        match (capability, expected_capability) {
-            (Some(c1), Some(c2)) if c1 == c2 => Ok(()),
-            (None, None) => Err(Error::new(
+        if let Some(capability) = capability {
+            if capability == expected_capability {
+                Ok(())
+            } else {
+                Err(Error::new(
+                    ErrorKind::PermissionDenied,
+                    "Invalid remote channel capability",
+                ))
+            }
+        } else {
+            Err(Error::new(
                 ErrorKind::PermissionDenied,
                 "Missing capabilities for verification",
-            )),
-            _ => Err(Error::new(
-                ErrorKind::PermissionDenied,
-                "Invalid remote channel capability",
-            )),
+            ))
         }
     }
 }
@@ -86,7 +98,8 @@ pub struct Handshake {
 
 impl Handshake {
     pub fn new(is_initiator: bool) -> Result<Self> {
-        let (state, local_keypair) = build_handshake_state(is_initiator).map_err(map_err)?;
+        let (state, local_keypair) =
+            build_handshake_state(is_initiator).map_err(|e| wrap_error(&e))?;
 
         let local_nonce = generate_nonce()?;
         let payload = encode_nonce(local_nonce.clone());
@@ -110,6 +123,7 @@ impl Handshake {
         })
     }
 
+    #[inline]
     pub fn start(&mut self) -> Result<Option<&'_ [u8]>> {
         if self.is_initiator() {
             let tx_len = self.send()?;
@@ -119,27 +133,31 @@ impl Handshake {
         }
     }
 
-    pub fn complete(&self) -> bool {
+    #[inline]
+    pub fn is_complete(&self) -> bool {
         self.complete
     }
 
+    #[inline]
     pub fn is_initiator(&self) -> bool {
         self.result.is_initiator
     }
 
+    #[inline]
     fn recv(&mut self, msg: &[u8]) -> Result<usize> {
         self.state
             .read_message(msg, &mut self.rx_buf)
-            .map_err(map_err)
+            .map_err(|e| wrap_error(&e))
     }
+    #[inline]
     fn send(&mut self) -> Result<usize> {
         self.state
             .write_message(&self.payload, &mut self.tx_buf)
-            .map_err(map_err)
+            .map_err(|e| wrap_error(&e))
     }
 
     pub fn read(&mut self, msg: &[u8]) -> Result<Option<&'_ [u8]>> {
-        if self.complete() {
+        if self.is_complete() {
             return Err(Error::new(ErrorKind::Other, "Handshake read after finish"));
         }
 
@@ -173,20 +191,14 @@ impl Handshake {
         Ok(tx_buf)
     }
 
+    #[inline]
     pub fn into_result(self) -> Result<HandshakeResult> {
-        if !self.complete() {
-            Err(Error::new(ErrorKind::Other, "Handshake is not complete"))
-        } else {
+        if self.is_complete() {
             Ok(self.result)
+        } else {
+            Err(Error::new(ErrorKind::Other, "Handshake is not complete"))
         }
     }
-}
-
-fn map_err(e: SnowError) -> Error {
-    Error::new(
-        ErrorKind::PermissionDenied,
-        format!("handshake error: {}", e),
-    )
 }
 
 #[inline]

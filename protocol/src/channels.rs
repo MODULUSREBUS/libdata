@@ -198,20 +198,19 @@ impl ChannelMap {
     }
 
     fn alloc_local(&mut self) -> usize {
-        let empty_id = self.local_id.iter().skip(1).position(|x| x.is_none());
-        match empty_id {
-            Some(empty_id) => empty_id,
-            None => {
-                self.local_id.push(None);
-                self.local_id.len() - 1
-            }
+        let id = self.local_id.iter().skip(1).position(Option::is_none);
+        if let Some(empty_id) = id {
+            empty_id
+        } else {
+            self.local_id.push(None);
+            self.local_id.len() - 1
         }
     }
     fn alloc_remote(&mut self, id: usize) {
         if self.remote_id.len() > id {
             self.remote_id[id] = None;
         } else {
-            self.remote_id.resize(id + 1, None)
+            self.remote_id.resize(id + 1, None);
         }
     }
 }

@@ -1,7 +1,7 @@
 syntax = "proto2";
 
 //! message schema for hypercore replication protocol
-package hypercore.schema;
+package datacore.schema;
 
 // Sent as part of the noise protocol.
 message NoisePayload {

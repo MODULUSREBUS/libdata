@@ -29,11 +29,12 @@ impl Debug for Command {
 
 /// [Link] handle.
 #[derive(Debug, Clone)]
-pub struct LinkHandle {
+pub struct Handle {
     tx: UnboundedSender<Command>,
 }
-impl LinkHandle {
+impl Handle {
     /// Create [LinkHandle].
+    #[must_use]
     pub fn new(tx: UnboundedSender<Command>) -> Self {
         Self { tx }
     }

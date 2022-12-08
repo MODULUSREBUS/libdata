@@ -72,12 +72,12 @@ impl<H: HashMethods> MerkleTreeStream<H> {
     /// Create a new MerkleTreeStream instance.
     #[inline]
     pub fn new(handler: H, roots: Vec<H::Node>) -> MerkleTreeStream<H> {
-        let blocks = if !roots.is_empty() {
-            // Cant panic because roots.len() > 0
+        let blocks = if roots.is_empty() {
+            0
+        } else {
+            // Safe because roots.len() > 0
             let root = roots.last().unwrap();
             1 + flat_tree::right_span(root.index()) / 2
-        } else {
-            0
         };
 
         MerkleTreeStream {

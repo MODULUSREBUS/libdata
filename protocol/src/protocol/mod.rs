@@ -10,7 +10,7 @@ pub mod main;
 
 /// Init a new [Protocol] with [Options].
 #[inline]
-pub fn new_protocol<T>(io: T, options: Options) -> Protocol<T, handshake::Stage>
+pub fn new<T>(io: T, options: Options) -> Protocol<T, handshake::Stage>
 where
     T: AsyncWrite + AsyncRead + Send + Unpin + 'static,
 {
@@ -19,20 +19,20 @@ where
 
 /// Init a new [Protocol] with default [Options].
 #[inline]
-pub fn new_protocol_with_defaults<T>(io: T, is_initiator: bool) -> Protocol<T, handshake::Stage>
+pub fn default<T>(io: T, is_initiator: bool) -> Protocol<T, handshake::Stage>
 where
     T: AsyncWrite + AsyncRead + Send + Unpin + 'static,
 {
     let options = Options::new(is_initiator);
-    new_protocol(io, options)
+    new(io, options)
 }
 
-/// [Protocol] stage.
-pub trait ProtocolStage {}
+/// [Stage] of the [Protocol].
+pub trait Stage {}
 
 /// Replication [Protocol].
 #[derive(Debug)]
-pub struct Protocol<T, S: ProtocolStage> {
+pub struct Protocol<T, S: Stage> {
     io: IO<T>,
     state: S,
 }

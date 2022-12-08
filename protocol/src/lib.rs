@@ -18,8 +18,9 @@ mod util;
 
 /// The wire messages used by the protocol.
 #[allow(missing_docs)]
+#[allow(clippy::derive_partial_eq_without_eq)]
 pub mod schema {
-    include!(concat!(env!("OUT_DIR"), "/hypercore.schema.rs"));
+    include!(concat!(env!("OUT_DIR"), "/datacore.schema.rs"));
 }
 
 /// Maximum size of a `Message`.
@@ -33,7 +34,7 @@ pub type RemotePublicKey = [u8; 32];
 /// Discovery key (32 bytes).
 pub type DiscoveryKey = [u8; 32];
 
-pub use crate::protocol::{handshake, main, new_protocol, new_protocol_with_defaults, Protocol};
+pub use crate::protocol::{handshake, main, new, default, Protocol};
 pub use duplex::Duplex;
 pub use message::Message;
 pub use options::Options;

@@ -5,11 +5,11 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_stream::{Stream, StreamExt};
 
 use crate::io::IO;
-use crate::message::{Frame, FrameType};
+use crate::message::Frame;
 use crate::noise;
 use crate::Options;
 
-use super::{main, Protocol, ProtocolStage};
+use super::{main, Protocol};
 
 macro_rules! return_error {
     ($msg:expr) => {
@@ -32,7 +32,7 @@ pub enum Event {
 pub struct Stage {
     handshake: Option<noise::Handshake>,
 }
-impl ProtocolStage for Stage {}
+impl super::Stage for Stage {}
 
 impl<T> Protocol<T, Stage>
 where
@@ -40,8 +40,7 @@ where
 {
     /// Create a new replication protocol in handshake stage.
     pub fn new(io: T, options: Options) -> Self {
-        let mut io = IO::new(io, options);
-        io.read_state.set_frame_type(FrameType::Raw);
+        let io = IO::new(io, options);
 
         Self {
             io,
@@ -51,18 +50,19 @@ where
 
     /// Wait for handshake and upgrade to [Protocol<IO>].
     pub async fn handshake(mut self) -> Result<Protocol<T, main::Stage>> {
-        if !self.io.options.noise {
-            return Ok(Protocol::<T, main::Stage>::new(self.io, None));
-        }
-
-        let Event::Handshake(handshake) = self.next().await.unwrap()?;
-
-        Ok(Protocol::<T, main::Stage>::new(self.io, Some(handshake)))
+        let handshake_result = if self.io.noise_enabled() {
+            let Event::Handshake(handshake) = self.next().await.unwrap()?;
+            Some(handshake)
+        } else {
+            None
+        };
+        self.io.upgrade_with_handshake(&handshake_result);
+        Ok(Protocol::<T, main::Stage>::new(self.io, handshake_result))
     }
 
     fn init(&mut self) -> Result<()> {
-        if self.io.options.noise {
-            let mut handshake = noise::Handshake::new(self.io.options.is_initiator)?;
+        if self.io.noise_enabled() {
+            let mut handshake = noise::Handshake::new(self.io.is_initiator())?;
             // If the handshake start returns a buffer, send it now.
             if let Some(buf) = handshake.start()? {
                 self.io.queue_frame(buf.to_vec());
@@ -72,13 +72,13 @@ where
         Ok(())
     }
 
-    fn on_handshake_message(&mut self, buf: Vec<u8>) -> Result<()> {
+    fn on_handshake_message(&mut self, buf: &[u8]) -> Result<()> {
         let mut handshake = match self.state.handshake.take() {
             Some(handshake) => handshake,
             None => return Err(anyhow!("Handshake empty and received a handshake message")),
         };
 
-        if let Some(response_buf) = handshake.read(&buf)? {
+        if let Some(response_buf) = handshake.read(buf)? {
             self.io.queue_frame(response_buf.to_vec());
         }
 
@@ -91,8 +91,8 @@ where
             let msg = self.io.poll_inbound_read(cx)?;
             match msg {
                 Some(frame) => match frame {
-                    Frame::Raw(buf) => self.on_handshake_message(buf)?,
-                    _ => unreachable!("May not receive message frames when not established"),
+                    Frame::Raw(buf) => self.on_handshake_message(&buf)?,
+                    Frame::Message(_) => unreachable!("May not receive message frames when not established"),
                 },
                 None => return Ok(()),
             };
@@ -105,7 +105,7 @@ where
             None => return None,
         };
 
-        if handshake.complete() {
+        if handshake.is_complete() {
             Some(handshake.into_result().map_err(|err| anyhow!(err)))
         } else {
             self.state.handshake = Some(handshake);

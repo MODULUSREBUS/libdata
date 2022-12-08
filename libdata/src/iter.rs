@@ -9,17 +9,20 @@ use tokio::sync::Mutex;
 
 use crate::{BlockSignature, Core, IndexAccess};
 
+type ReadTask<T> = Pin<Box<dyn Future<Output = T>>>;
+
 /// Async [Stream] iterator over [Core].
 pub struct CoreIterator<T> {
     core: Arc<Mutex<Core<T>>>,
-    task: Pin<Box<dyn Future<Output = (u32, Option<Vec<u8>>)>>>,
+    task: ReadTask<(u32, Option<Vec<u8>>)>,
 }
-impl<T: 'static> CoreIterator<T>
+impl<T> CoreIterator<T>
 where
-    T: IndexAccess + Send,
+    T: IndexAccess + Send + 'static,
     <T as IndexAccess>::Error: Into<anyhow::Error>,
 {
     /// Create a new [CoreIterator].
+    #[must_use]
     pub fn new(core: Arc<Mutex<Core<T>>>, index: u32) -> Self {
         let task = Self::create_read_task(Arc::clone(&core), index);
         Self { core, task }
@@ -29,7 +32,7 @@ where
     fn create_read_task(
         core: Arc<Mutex<Core<T>>>,
         index: u32,
-    ) -> Pin<Box<dyn Future<Output = (u32, Option<Vec<u8>>)>>> {
+    ) -> ReadTask<(u32, Option<Vec<u8>>)> {
         async move {
             let result: Result<Option<(Vec<u8>, BlockSignature)>>;
             {
@@ -45,9 +48,9 @@ where
         .boxed()
     }
 }
-impl<T: 'static> Stream for CoreIterator<T>
+impl<T> Stream for CoreIterator<T>
 where
-    T: IndexAccess + Send,
+    T: IndexAccess + Send + 'static,
     <T as IndexAccess>::Error: Into<anyhow::Error>,
 {
     type Item = (u32, Vec<u8>);

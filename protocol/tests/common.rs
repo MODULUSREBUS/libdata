@@ -8,9 +8,7 @@ use tokio::net::TcpStream;
 use tokio::task;
 use tokio_stream::StreamExt;
 
-use protocol::{
-    handshake, main, new_protocol, new_protocol_with_defaults, Duplex, Options, Protocol,
-};
+use protocol::{self, handshake, main, Duplex, Options, Protocol};
 
 pub fn create_duplex_pair_memory() -> (
     Duplex<Compat<PipeReader>, Compat<PipeWriter>>,
@@ -34,7 +32,7 @@ pub fn create_pair_memory_keepalive(
     keepalive_ms: Option<u64>,
 ) -> Result<(MemoryProtocol, MemoryProtocol)> {
     let (a, b) = create_duplex_pair_memory();
-    let b = new_protocol(
+    let b = protocol::new(
         b,
         Options {
             is_initiator: false,
@@ -42,7 +40,7 @@ pub fn create_pair_memory_keepalive(
             ..Options::default()
         },
     );
-    let a = new_protocol(
+    let a = protocol::new(
         a,
         Options {
             is_initiator: true,
@@ -83,8 +81,8 @@ where
 pub type TcpProtocol = Protocol<TcpStream, handshake::Stage>;
 pub async fn create_pair_tcp() -> Result<(TcpProtocol, TcpProtocol)> {
     let (stream_a, stream_b) = tcp::pair().await?;
-    let b = new_protocol_with_defaults(stream_b, false);
-    let a = new_protocol_with_defaults(stream_a, true);
+    let b = protocol::default(stream_b, false);
+    let a = protocol::default(stream_a, true);
     Ok((a, b))
 }
 

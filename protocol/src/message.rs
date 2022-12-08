@@ -1,9 +1,9 @@
-use super::schema::*;
-use super::MAX_MESSAGE_SIZE;
-
 use prost::Message as _;
 use std::fmt;
 use std::io;
+
+use super::schema::{Close, Data, Open, Request};
+use super::MAX_MESSAGE_SIZE;
 
 /// Error if the buffer has insufficient size to encode a message.
 #[derive(Debug)]
@@ -172,6 +172,7 @@ impl Message {
         }
     }
     /// Wire type of this message.
+    #[must_use]
     pub fn typ(&self) -> u64 {
         match self {
             Self::Open(_) => 0,
@@ -218,7 +219,7 @@ impl fmt::Display for Message {
                 f,
                 "Open(discovery_key: {}, capability: <{}>)",
                 hex::encode(&msg.discovery_key),
-                msg.capability.as_ref().map_or(0, |c| c.len()),
+                msg.capability.as_ref().map_or(0, Vec::len),
             ),
             Self::Close(msg) => write!(
                 f,

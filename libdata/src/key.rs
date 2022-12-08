@@ -6,6 +6,7 @@ pub use datacore::{generate_keypair, Keypair, PublicKey, SecretKey};
 pub use protocol::{discovery_key, DiscoveryKey};
 
 /// Derive a named [Keypair] from a base [SecretKey].
+#[must_use]
 pub fn derive_keypair(key: &SecretKey, name: &str) -> Keypair {
     let seed: <ChaCha20Rng as SeedableRng>::Seed = derive_key(name, &key.to_bytes());
 
