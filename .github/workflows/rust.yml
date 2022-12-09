@@ -13,10 +13,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+    - uses: cachix/install-nix-action@v18
 
     - name: Build
-      run: cargo build --verbose
+      run: nix develop -c cargo build --verbose
 
     - name: Test
-      run: cargo test --verbose
+      run: nix develop -c cargo test --verbose
