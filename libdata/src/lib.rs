@@ -9,17 +9,18 @@
 //! defines interface for managing collection of [Cores],
 //! and specifies [replication] over [protocol].
 
-pub use datacore::{BlockSignature, Core, IndexAccess, Signature, MAX_CORE_LENGTH};
-
-mod key;
-pub use key::{
-    derive_keypair, discovery_key, generate_keypair, DiscoveryKey, Keypair, PublicKey, SecretKey,
-};
-
-mod iter;
-pub use iter::CoreIterator;
-
 mod cores;
-pub use cores::Cores;
+mod iter;
 
+pub mod key;
+pub mod keypair;
 pub mod replication;
+
+pub use datacore::ed25519_dalek;
+pub use datacore::{Core, IndexAccess, Signature, MAX_CORE_LENGTH};
+
+pub use cores::Cores;
+pub use iter::CoreIterator;
+pub use key::{DiscoveryKey, PublicKey, SecretKey};
+pub use keypair::Keypair;
+

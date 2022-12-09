@@ -7,8 +7,6 @@ pub trait HashMethods {
     /// The Node type we'll iterate over.
     type Node: Node<Self::Hash>;
 
-    /// Pass data through a hash function.
-    fn leaf(&self, data: &[u8]) -> Self::Hash;
     /// Pass hashes through a hash function.
     fn parent(&self, a: &Self::Node, b: &Self::Node) -> Self::Hash;
 }
@@ -17,13 +15,13 @@ pub trait HashMethods {
 /// `MerkleTreeStream` works with.
 pub trait Node<H> {
     /// Create a new Node.
-    fn new(index: u64, hash: H, length: u64) -> Self;
+    fn new(index: u64, hash: H, length: u32) -> Self;
     /// Get the position at which the node was found.
     fn index(&self) -> u64;
     /// Get the hash contained in the node.
     fn hash(&self) -> &H;
     /// Get the length of the node.
-    fn length(&self) -> u64;
+    fn length(&self) -> u32;
 }
 
 /// Node representation.
@@ -34,12 +32,12 @@ pub struct DefaultNode<H> {
     /// Hash.
     pub hash: H,
     /// Total size of all its child nodes combined.
-    pub length: u64,
+    pub length: u32,
 }
 
 impl<H> Node<H> for DefaultNode<H> {
     #[inline]
-    fn new(index: u64, hash: H, length: u64) -> Self {
+    fn new(index: u64, hash: H, length: u32) -> Self {
         Self {
             index,
             hash,
@@ -55,7 +53,7 @@ impl<H> Node<H> for DefaultNode<H> {
         &self.hash
     }
     #[inline]
-    fn length(&self) -> u64 {
+    fn length(&self) -> u32 {
         self.length
     }
 }
@@ -63,25 +61,27 @@ impl<H> Node<H> for DefaultNode<H> {
 /// A stream that generates a merkle tree based on the incoming data.
 #[derive(Debug, Clone)]
 pub struct MerkleTreeStream<T: HashMethods> {
-    handler: T,
+    hasher: T,
     roots: Vec<T::Node>,
-    blocks: u64,
+    blocks: u32,
 }
 
 impl<H: HashMethods> MerkleTreeStream<H> {
     /// Create a new MerkleTreeStream instance.
     #[inline]
-    pub fn new(handler: H, roots: Vec<H::Node>) -> MerkleTreeStream<H> {
-        let blocks = if roots.is_empty() {
+    pub fn new(hasher: H, roots: Vec<H::Node>) -> MerkleTreeStream<H> {
+        let blocks: u32 = if roots.is_empty() {
             0
         } else {
             // Safe because roots.len() > 0
             let root = roots.last().unwrap();
-            1 + flat_tree::right_span(root.index()) / 2
+            1 + u32::try_from(flat_tree::right_span(root.index()) / 2).expect(
+                "tree is too long to represent a valid datacore, max length is (u32::MAX - 1)",
+            )
         };
 
         MerkleTreeStream {
-            handler,
+            hasher,
             roots,
             blocks,
         }
@@ -89,8 +89,8 @@ impl<H: HashMethods> MerkleTreeStream<H> {
 
     /// Pass a string buffer through the flat-tree hash functions.
     #[inline]
-    pub fn next(&mut self, hash: H::Hash, length: u64) {
-        let index: u64 = 2 * self.blocks;
+    pub fn next(&mut self, hash: H::Hash, length: u32) {
+        let index = 2 * u64::from(self.blocks);
         self.blocks += 1;
 
         let node = H::Node::new(index, hash, length);
@@ -107,7 +107,7 @@ impl<H: HashMethods> MerkleTreeStream<H> {
                     break;
                 }
 
-                let hash = self.handler.parent(left, right);
+                let hash = self.hasher.parent(left, right);
                 H::Node::new(left_parent, hash, left.length() + right.length())
             };
             for _ in 0..2 {
@@ -125,7 +125,7 @@ impl<H: HashMethods> MerkleTreeStream<H> {
 
     /// Get number of blocks
     #[inline]
-    pub fn blocks(&self) -> u64 {
+    pub fn blocks(&self) -> u32 {
         self.blocks
     }
 }

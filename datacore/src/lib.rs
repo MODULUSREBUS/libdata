@@ -43,9 +43,11 @@ mod merkle;
 mod merkle_tree_stream;
 mod store;
 
-pub use self::core::{Core, MAX_BLOCK_SIZE, MAX_CORE_LENGTH};
-pub use block::{Block, BlockSignature, Signature, SIGNATURE_LENGTH};
-pub use hash::Hash;
+pub use ed25519_dalek;
 pub use index_access_storage::IndexAccess;
+
+pub use self::core::{Core, MAX_BLOCK_SIZE, MAX_CORE_LENGTH};
+pub use block::{Block, Signature, SIGNATURE_LENGTH};
+pub use hash::Hash;
 pub use keys::{generate_keypair, sign, verify, Keypair, PublicKey, SecretKey};
 pub use merkle::{Merkle, Node, NodeTrait};

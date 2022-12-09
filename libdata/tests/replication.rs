@@ -9,10 +9,10 @@ use tokio::{task, test, time};
 
 use index_access_memory::IndexAccessMemory;
 use libdata::replication::{CoreReplica, Duplex, Handle, Link, Options};
-use libdata::{generate_keypair, Core, PublicKey};
+use libdata::{keypair, Core, PublicKey};
 
 async fn new_core() -> Result<Core<IndexAccessMemory>> {
-    let keypair = generate_keypair();
+    let keypair = keypair::generate();
     Core::new(
         IndexAccessMemory::default(),
         keypair.public,

@@ -8,14 +8,14 @@ use crate::merkle_tree_stream::{HashMethods, MerkleTreeStream};
 
 pub use crate::merkle_tree_stream::Node as NodeTrait;
 
-pub const NODE_SIZE: usize = 2 * size_of::<u64>() + HASH_SIZE;
+pub const NODE_SIZE: usize = size_of::<u64>() + size_of::<u32>() + HASH_SIZE;
 
 /// [Merkle] node.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Node {
     index: u64,
+    length: u32,
     hash: Hash,
-    length: u64,
 }
 
 impl Node {
@@ -24,14 +24,14 @@ impl Node {
     pub fn from_bytes(data: &[u8]) -> Result<Self> {
         let mut rdr = Cursor::new(data);
         let index = rdr.read_u64::<LittleEndian>()?;
-        let length = rdr.read_u64::<LittleEndian>()?;
+        let length = rdr.read_u32::<LittleEndian>()?;
         let mut hash_bytes = [0u8; HASH_SIZE];
         rdr.read_exact(&mut hash_bytes)?;
         let hash = Hash::from_bytes(&hash_bytes)?;
         Ok(Self {
             index,
-            hash,
             length,
+            hash,
         })
     }
 
@@ -40,7 +40,7 @@ impl Node {
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
         let mut data = Vec::with_capacity(NODE_SIZE);
         data.write_u64::<LittleEndian>(self.index)?;
-        data.write_u64::<LittleEndian>(self.length)?;
+        data.write_u32::<LittleEndian>(self.length)?;
         data.extend_from_slice(self.hash.as_bytes());
         ensure!(data.len() == NODE_SIZE);
         Ok(data)
@@ -49,11 +49,11 @@ impl Node {
 
 impl NodeTrait<Hash> for Node {
     #[inline]
-    fn new(index: u64, hash: Hash, length: u64) -> Self {
+    fn new(index: u64, hash: Hash, length: u32) -> Self {
         Self {
             index,
-            hash,
             length,
+            hash,
         }
     }
     #[inline]
@@ -65,7 +65,7 @@ impl NodeTrait<Hash> for Node {
         &self.hash
     }
     #[inline]
-    fn length(&self) -> u64 {
+    fn length(&self) -> u32 {
         self.length
     }
 }
@@ -78,14 +78,9 @@ impl HashMethods for H {
     type Node = Node;
 
     #[inline]
-    fn leaf(&self, data: &[u8]) -> Self::Hash {
-        Hash::from_leaf(data)
-    }
-
-    #[inline]
     fn parent(&self, left: &Self::Node, right: &Self::Node) -> Self::Hash {
         let length = left.length + right.length;
-        Hash::from_hashes(&left.hash, &right.hash, length as u64)
+        Hash::from_hashes(&left.hash, &right.hash, length)
     }
 }
 
@@ -113,7 +108,7 @@ impl Merkle {
 
     /// Access the next item.
     #[inline]
-    pub fn next(&mut self, data: Hash, length: u64) {
+    pub fn next(&mut self, data: Hash, length: u32) {
         self.stream.next(data, length);
     }
 
@@ -134,7 +129,7 @@ impl Merkle {
     /// Get number of blocks.
     #[must_use]
     #[inline]
-    pub fn blocks(&self) -> u64 {
+    pub fn blocks(&self) -> u32 {
         self.stream.blocks()
     }
 }
@@ -151,7 +146,7 @@ mod tests {
     #[test]
     fn node() {
         let mut merkle = Merkle::default();
-        merkle.next(Hash::from_leaf("a".as_bytes()), 1);
+        merkle.next(Hash::from_leaf("a".as_bytes()).unwrap(), 1);
         let node = merkle.roots().get(0).unwrap();
         let node2 = Node::from_bytes(&node.to_bytes().unwrap()).unwrap();
         assert_eq!(node2, *node);
@@ -160,9 +155,9 @@ mod tests {
     #[test]
     fn next() {
         let mut merkle = Merkle::default();
-        merkle.next(Hash::from_leaf("a".as_bytes()), 1);
-        merkle.next(Hash::from_leaf("b".as_bytes()), 1);
-        merkle.next(Hash::from_leaf("c".as_bytes()), 1);
+        merkle.next(Hash::from_leaf("a".as_bytes()).unwrap(), 1);
+        merkle.next(Hash::from_leaf("b".as_bytes()).unwrap(), 1);
+        merkle.next(Hash::from_leaf("c".as_bytes()).unwrap(), 1);
         assert_eq!(merkle.blocks(), 3);
     }
 
@@ -171,18 +166,18 @@ mod tests {
         let mut merkle = Merkle::default();
         let data1 = "hello_world".as_bytes();
         let data2 = vec![7u8; 1024];
-        merkle.next(Hash::from_leaf(data1), data1.len() as u64);
-        merkle.next(Hash::from_leaf(&data2), data2.len() as u64);
+        merkle.next(Hash::from_leaf(data1).unwrap(), data1.len() as u32);
+        merkle.next(Hash::from_leaf(&data2).unwrap(), data2.len() as u32);
         assert_eq!(merkle.blocks(), 2);
     }
 
     #[test]
     fn roots_full() {
         let mut merkle = Merkle::default();
-        merkle.next(Hash::from_leaf("a".as_bytes()), 1);
-        merkle.next(Hash::from_leaf("b".as_bytes()), 1);
-        merkle.next(Hash::from_leaf("c".as_bytes()), 1);
-        merkle.next(Hash::from_leaf("d".as_bytes()), 1);
+        merkle.next(Hash::from_leaf("a".as_bytes()).unwrap(), 1);
+        merkle.next(Hash::from_leaf("b".as_bytes()).unwrap(), 1);
+        merkle.next(Hash::from_leaf("c".as_bytes()).unwrap(), 1);
+        merkle.next(Hash::from_leaf("d".as_bytes()).unwrap(), 1);
         let roots = merkle.roots();
         assert_eq!(roots.len(), 1);
         assert_eq!(roots.get(0).unwrap().index(), 3);
@@ -190,9 +185,9 @@ mod tests {
     #[test]
     fn roots() {
         let mut merkle = Merkle::default();
-        merkle.next(Hash::from_leaf("a".as_bytes()), 1);
-        merkle.next(Hash::from_leaf("b".as_bytes()), 1);
-        merkle.next(Hash::from_leaf("c".as_bytes()), 1);
+        merkle.next(Hash::from_leaf("a".as_bytes()).unwrap(), 1);
+        merkle.next(Hash::from_leaf("b".as_bytes()).unwrap(), 1);
+        merkle.next(Hash::from_leaf("c".as_bytes()).unwrap(), 1);
         let roots = merkle.roots();
         assert_eq!(roots.len(), 2);
         assert_eq!(roots.get(0).unwrap().index(), 1);

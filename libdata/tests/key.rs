@@ -1,17 +1,17 @@
 use insta;
 use quickcheck::{quickcheck, TestResult};
 
-use libdata::{derive_keypair, generate_keypair, SecretKey};
+use libdata::{keypair, SecretKey};
 
 #[test]
 fn key_can_generate() {
-    let _keypair = generate_keypair();
+    let _keypair = keypair::generate();
 }
 
 #[test]
 fn key_can_derive() {
-    let keypair = generate_keypair();
-    let _derived = derive_keypair(&keypair.secret, "hello");
+    let keypair = keypair::generate();
+    let _derived = keypair::derive(&keypair.secret, "hello");
 }
 
 quickcheck! {
@@ -20,26 +20,26 @@ quickcheck! {
             return TestResult::discard()
         }
 
-        let main = generate_keypair();
-        let a = derive_keypair(&main.secret, &a);
-        let b = derive_keypair(&main.secret, &b);
+        let main = keypair::generate();
+        let a = keypair::derive(&main.secret, &a);
+        let b = keypair::derive(&main.secret, &b);
 
         TestResult::from_bool(a.to_bytes() != b.to_bytes())
     }
 
     fn key_different_key_same_name(name: String) -> bool {
-        let a = generate_keypair();
-        let b = generate_keypair();
-        let a = derive_keypair(&a.secret, &name);
-        let b = derive_keypair(&b.secret, &name);
+        let a = keypair::generate();
+        let b = keypair::generate();
+        let a = keypair::derive(&a.secret, &name);
+        let b = keypair::derive(&b.secret, &name);
 
         a.to_bytes() != b.to_bytes()
     }
 
     fn key_same_key_same_name(name: String) -> bool {
-        let main = generate_keypair();
-        let a = derive_keypair(&main.secret, &name);
-        let b = derive_keypair(&main.secret, &name);
+        let main = keypair::generate();
+        let a = keypair::derive(&main.secret, &name);
+        let b = keypair::derive(&main.secret, &name);
 
         a.to_bytes() == b.to_bytes()
     }
@@ -58,21 +58,21 @@ fn key_secret_key_bytes_have_not_changed() {
 #[test]
 fn key_snapshot_1() {
     let main = SecretKey::from_bytes(&SECRET_KEY_BYTES).unwrap();
-    let keypair = derive_keypair(&main, "hello");
+    let keypair = keypair::derive(&main, "hello");
     insta::assert_debug_snapshot!(keypair.to_bytes());
 }
 
 #[test]
 fn key_snapshot_2() {
     let main = SecretKey::from_bytes(&SECRET_KEY_BYTES).unwrap();
-    let keypair = derive_keypair(&main, "hello2");
+    let keypair = keypair::derive(&main, "hello2");
     insta::assert_debug_snapshot!(keypair.to_bytes());
 }
 
 #[test]
 fn key_snapshot_3() {
     let main = SecretKey::from_bytes(&SECRET_KEY_BYTES).unwrap();
-    let keypair = derive_keypair(
+    let keypair = keypair::derive(
         &main,
         "a very long string as a key name should not break the key derive, \
         it should just work without any issues, this is just testing it, \

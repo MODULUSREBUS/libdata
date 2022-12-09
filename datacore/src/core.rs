@@ -6,7 +6,7 @@ use anyhow::{bail, ensure, Result};
 use crate::merkle::Merkle;
 use crate::merkle_tree_stream::Node;
 use crate::store::Store;
-use crate::{sign, verify, Block, BlockSignature, Hash, IndexAccess, PublicKey, SecretKey};
+use crate::{sign, verify, Block, Hash, IndexAccess, PublicKey, SecretKey, Signature};
 
 /// Maximum number of blocks of data in a `Core`.
 pub const MAX_CORE_LENGTH: usize = (u32::MAX - 1) as usize;
@@ -72,7 +72,7 @@ where
         let mut store = Store::new(store);
 
         let merkle = store.read_merkle().await?;
-        let length = merkle.blocks() as u32;
+        let length: u32 = merkle.blocks();
         let byte_length = match length {
             0 => 0,
             n => {
@@ -99,17 +99,18 @@ where
     /// If `signature` is supplied, the caller is responsible for verifying its
     /// integrity and consistency with the `data`.
     #[inline]
-    pub async fn append(&mut self, data: &[u8], signature: Option<BlockSignature>) -> Result<()> {
+    pub async fn append(&mut self, data: &[u8], signature: Option<Signature>) -> Result<()> {
         let index = self.len();
         let data_length = data.len();
         ensure!(data_length <= MAX_BLOCK_SIZE);
+        let data_length = u32::try_from(data_length)?;
 
         // get or try to create the `signature`
         let signature = if let Some(signature) = signature {
-            let data_hash = Hash::from_leaf(data);
+            let data_hash = Hash::from_leaf(data)?;
             verify(&self.public_key, &data_hash, signature.data())?;
             let mut merkle = self.merkle.clone();
-            merkle.next(data_hash, data_length as u64);
+            merkle.next(data_hash, data_length);
             verify(&self.public_key, &hash_merkle(&merkle), signature.tree())?;
             self.merkle = merkle;
             signature
@@ -118,18 +119,18 @@ where
                 Some(secret) => secret,
                 None => bail!("No SecretKey for Core, cannot append."),
             };
-            let data_hash = Hash::from_leaf(data);
+            let data_hash = Hash::from_leaf(data)?;
             let data_sign = sign(&self.public_key, secret, &data_hash);
-            self.merkle.next(data_hash, data_length as u64);
+            self.merkle.next(data_hash, data_length);
             let tree_sign = sign(&self.public_key, secret, &hash_merkle(&self.merkle));
-            BlockSignature::new(data_sign, tree_sign)
+            Signature::new(data_sign, tree_sign)
         };
 
         let block = Block::new(self.byte_length, data_length as u32, signature);
 
         self.store.write(index, data, &block).await?;
         self.store.write_merkle(&self.merkle).await?;
-        self.byte_length += data_length as u64;
+        self.byte_length += u64::from(data_length);
         self.length += 1;
 
         Ok(())
@@ -138,7 +139,7 @@ where
     /// Get the block of data at the tip of the feed.
     /// This will be the most recently appended block.
     #[inline]
-    pub async fn head(&mut self) -> Result<Option<(Vec<u8>, BlockSignature)>> {
+    pub async fn head(&mut self) -> Result<Option<(Vec<u8>, Signature)>> {
         match self.len() {
             0 => Ok(None),
             len => self.get(len - 1).await,
@@ -146,7 +147,7 @@ where
     }
     /// Retrieve data for a block at index.
     #[inline]
-    pub async fn get(&mut self, index: u32) -> Result<Option<(Vec<u8>, BlockSignature)>> {
+    pub async fn get(&mut self, index: u32) -> Result<Option<(Vec<u8>, Signature)>> {
         ensure!((index as usize) < MAX_CORE_LENGTH);
         let length = self.len();
         if index >= length {
@@ -156,7 +157,7 @@ where
             .store
             .read(index)
             .await?
-            .map(|(data, block)| (data, block.signature())))
+            .map(|(data, block)| (data, block.signature().clone())))
     }
 }
 
@@ -164,7 +165,7 @@ where
 fn hash_merkle(merkle: &Merkle) -> Hash {
     let roots = merkle.roots();
     let hashes = roots.iter().map(Node::hash).collect::<Vec<&Hash>>();
-    let lengths = roots.iter().map(Node::length).collect::<Vec<u64>>();
+    let lengths = roots.iter().map(Node::length).collect::<Vec<u32>>();
     Hash::from_roots(&hashes, &lengths)
 }
 

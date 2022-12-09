@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Weak};
 use tokio::sync::Mutex;
 
-use crate::{discovery_key, Core, DiscoveryKey, IndexAccess, PublicKey};
+use crate::{key, Core, DiscoveryKey, IndexAccess, PublicKey};
 
 type PublicKeyBytes = [u8; 32];
 
@@ -26,7 +26,7 @@ impl<T: IndexAccess + Send> Cores<T> {
     /// Put a [Arc<Mutex<Core>>] under [PublicKey].
     pub fn put(&mut self, public: &PublicKey, core: Arc<Mutex<Core<T>>>) {
         let public = public.to_bytes();
-        let discovery = discovery_key(&public);
+        let discovery = key::discovery(&public);
 
         self.by_discovery.insert(discovery, Arc::downgrade(&core));
         self.by_public.insert(public, core);
@@ -43,7 +43,9 @@ impl<T: IndexAccess + Send> Cores<T> {
     #[must_use]
     #[inline]
     pub fn get_by_discovery(&self, key: &DiscoveryKey) -> Option<Arc<Mutex<Core<T>>>> {
-        self.by_discovery.get(key).and_then(std::sync::Weak::upgrade)
+        self.by_discovery
+            .get(key)
+            .and_then(std::sync::Weak::upgrade)
     }
 
     /// Returns the number of contained [Core]s.
@@ -74,7 +76,7 @@ impl<T: IndexAccess + Send> Cores<T> {
     #[must_use]
     #[inline]
     pub fn discovery_keys(&self) -> Vec<DiscoveryKey> {
-        self.by_public.keys().map(discovery_key).collect()
+        self.by_public.keys().map(key::discovery).collect()
     }
 
     /// Access the contained [Core]s.

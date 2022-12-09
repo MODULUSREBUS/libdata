@@ -1,13 +1,8 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use tempfile;
-use tokio::test;
 
-use datacore::{
-    generate_keypair, sign, verify, BlockSignature, Core, Hash, Keypair, Merkle, NodeTrait,
-    Signature, SIGNATURE_LENGTH,
-};
+use datacore::{generate_keypair, sign, verify, Core, Hash, Keypair, Merkle, NodeTrait, Signature};
 use index_access_fs::IndexAccessFs;
 
 fn read_bytes(dir: &Path, s: &str) -> Vec<u8> {
@@ -20,11 +15,11 @@ fn read_bytes(dir: &Path, s: &str) -> Vec<u8> {
 fn hash_tree(merkle: &Merkle) -> Hash {
     let roots = merkle.roots();
     let hashes = roots.iter().map(|root| root.hash()).collect::<Vec<&Hash>>();
-    let lengths = roots.iter().map(|root| root.length()).collect::<Vec<u64>>();
+    let lengths = roots.iter().map(|root| root.length()).collect::<Vec<u32>>();
     Hash::from_roots(&hashes, &lengths)
 }
 
-#[test]
+#[tokio::test]
 pub async fn replicate_manual() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
@@ -55,18 +50,18 @@ pub async fn replicate_manual() {
     assert_eq!(core.len(), 2);
 
     let mut merkle = Merkle::default();
-    let data_hash = Hash::from_leaf(data1);
+    let data_hash = Hash::from_leaf(data1).unwrap();
     let data_sign = sign(&keypair3.public, &keypair3.secret, &data_hash);
-    merkle.next(data_hash.clone(), data1.len() as u64);
+    merkle.next(data_hash.clone(), data1.len() as u32);
     verify(&keypair3.public, &data_hash, &data_sign).unwrap();
     let tree_hash = hash_tree(&merkle);
     let tree_sign = sign(&keypair3.public, &keypair3.secret, &tree_hash);
     verify(&keypair3.public, &tree_hash, &tree_sign).unwrap();
-    let signature = BlockSignature::new(data_sign, tree_sign);
+    let signature = Signature::new(data_sign, tree_sign);
     replica.append(data1, Some(signature)).await.unwrap();
-    let data_hash = Hash::from_leaf(data2);
-    merkle.next(data_hash.clone(), data2.len() as u64);
-    let signature = BlockSignature::new(
+    let data_hash = Hash::from_leaf(data2).unwrap();
+    merkle.next(data_hash.clone(), data2.len() as u32);
+    let signature = Signature::new(
         sign(&keypair3.public, &keypair3.secret, &data_hash),
         sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)),
     );
@@ -78,7 +73,7 @@ pub async fn replicate_manual() {
     assert_eq!(read_bytes(&dir2, "2"), read_bytes(&dir, "2"));
 }
 
-#[test]
+#[tokio::test]
 pub async fn replicate_manual_no_secret_key() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
@@ -109,16 +104,16 @@ pub async fn replicate_manual_no_secret_key() {
     assert_eq!(core.len(), 2);
 
     let mut merkle = Merkle::default();
-    let data_hash = Hash::from_leaf(data1);
-    merkle.next(data_hash.clone(), data1.len() as u64);
-    let signature = BlockSignature::new(
+    let data_hash = Hash::from_leaf(data1).unwrap();
+    merkle.next(data_hash.clone(), data1.len() as u32);
+    let signature = Signature::new(
         sign(&keypair3.public, &keypair3.secret, &data_hash),
         sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)),
     );
     replica.append(data1, Some(signature)).await.unwrap();
-    let data_hash = Hash::from_leaf(data2);
-    merkle.next(data_hash.clone(), data2.len() as u64);
-    let signature = BlockSignature::new(
+    let data_hash = Hash::from_leaf(data2).unwrap();
+    merkle.next(data_hash.clone(), data2.len() as u32);
+    let signature = Signature::new(
         sign(&keypair3.public, &keypair3.secret, &data_hash),
         sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)),
     );
@@ -130,7 +125,7 @@ pub async fn replicate_manual_no_secret_key() {
     assert_eq!(read_bytes(&dir2, "2"), read_bytes(&dir, "2"));
 }
 
-#[test]
+#[tokio::test]
 pub async fn replicate_signatures_no_secret_key() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
@@ -170,7 +165,7 @@ pub async fn replicate_signatures_no_secret_key() {
     assert_eq!(read_bytes(&dir2, "2"), read_bytes(&dir, "2"));
 }
 
-#[test]
+#[tokio::test]
 pub async fn replicate_then_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
@@ -216,7 +211,7 @@ pub async fn replicate_then_append() {
     assert_eq!(read_bytes(&dir2, "3"), read_bytes(&dir, "3"));
 }
 
-#[test]
+#[tokio::test]
 pub async fn replicate_fail_verify_then_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
@@ -250,16 +245,16 @@ pub async fn replicate_fail_verify_then_append() {
     let (data1, signature) = core.get(0).await.unwrap().unwrap();
     replica.append(&data1, Some(signature)).await.unwrap();
     let (data2, signature) = core.get(1).await.unwrap().unwrap();
-    let invalid_signature_1 = BlockSignature::new(
+    let invalid_signature_1 = Signature::new(
         *signature.data(),
-        Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap(),
+        ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::SIGNATURE_LENGTH]).unwrap(),
     );
-    let invalid_signature_2 = BlockSignature::new(
-        Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap(),
-        Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap(),
+    let invalid_signature_2 = Signature::new(
+        ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::SIGNATURE_LENGTH]).unwrap(),
+        ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::SIGNATURE_LENGTH]).unwrap(),
     );
-    let invalid_signature_3 = BlockSignature::new(
-        Signature::from_bytes(&[0u8; SIGNATURE_LENGTH]).unwrap(),
+    let invalid_signature_3 = Signature::new(
+        ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::SIGNATURE_LENGTH]).unwrap(),
         *signature.tree(),
     );
     assert!(replica

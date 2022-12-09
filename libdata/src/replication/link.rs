@@ -10,7 +10,7 @@ use tokio_stream::{Stream, StreamExt};
 use crate::replication::{
     Command, Data, DataOrRequest, Options, ReplicaTrait, Handle, Request,
 };
-use crate::{discovery_key, DiscoveryKey};
+use crate::{key, DiscoveryKey};
 use protocol::main::{Event as ProtocolEvent, Stage};
 use protocol::{self, Message, Protocol};
 
@@ -100,7 +100,7 @@ where
 
         match command {
             Command::Open(key, replica) => {
-                let discovery = discovery_key(&key.to_bytes());
+                let discovery = key::discovery(&key.to_bytes());
                 self.replicas.insert(discovery, replica);
                 self.protocol.open(key.to_bytes())?;
                 Ok(true)

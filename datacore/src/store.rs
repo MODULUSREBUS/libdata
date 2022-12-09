@@ -100,7 +100,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::block::{BlockSignature, Signature, SIGNATURE_LENGTH};
+    use crate::block::Signature;
+    use crate::ed25519_dalek;
     use crate::hash::Hash;
     use index_access_memory::IndexAccessMemory;
 
@@ -114,9 +115,9 @@ mod tests {
     async fn data() -> Result<()> {
         let mut store = Store::new(IndexAccessMemory::default());
         let data = b"hello world";
-        let signature = BlockSignature::new(
-            Signature::from_bytes(&[2u8; SIGNATURE_LENGTH])?,
-            Signature::from_bytes(&[7u8; SIGNATURE_LENGTH])?,
+        let signature = Signature::new(
+            ed25519_dalek::Signature::from_bytes(&[2u8; ed25519_dalek::SIGNATURE_LENGTH])?,
+            ed25519_dalek::Signature::from_bytes(&[7u8; ed25519_dalek::SIGNATURE_LENGTH])?,
         );
         let block = Block::new(1, 8, signature);
         store.write(0, data, &block).await?;
@@ -130,9 +131,9 @@ mod tests {
     async fn merkle() -> Result<()> {
         let mut store = Store::new(IndexAccessMemory::default());
         let mut merkle = Merkle::default();
-        merkle.next(Hash::from_leaf(b"a"), 1);
-        merkle.next(Hash::from_leaf(b"b"), 1);
-        merkle.next(Hash::from_leaf(b"c"), 1);
+        merkle.next(Hash::from_leaf(b"a")?, 1);
+        merkle.next(Hash::from_leaf(b"b")?, 1);
+        merkle.next(Hash::from_leaf(b"c")?, 1);
         store.write_merkle(&merkle).await?;
         let merkle2 = store.read_merkle().await?;
         assert_eq!(merkle.roots(), merkle2.roots());

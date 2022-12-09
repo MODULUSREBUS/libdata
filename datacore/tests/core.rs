@@ -1,12 +1,9 @@
-use tempfile;
-use tokio::test;
-
-use datacore::{generate_keypair, sign, BlockSignature, Core, Hash, Keypair, Merkle, NodeTrait};
+use datacore::{generate_keypair, sign, Core, Hash, Keypair, Merkle, NodeTrait, Signature};
 use index_access_fs::IndexAccessFs;
 use index_access_memory::IndexAccessMemory;
 
-#[test]
-pub async fn core_init() {
+#[tokio::test]
+async fn core_init() {
     let keypair = generate_keypair();
     let core = Core::new(
         IndexAccessMemory::default(),
@@ -19,8 +16,8 @@ pub async fn core_init() {
     assert_eq!(core.len(), 0);
 }
 
-#[test]
-pub async fn core_append() {
+#[tokio::test]
+async fn core_append() {
     let keypair = generate_keypair();
     let mut core = Core::new(
         IndexAccessMemory::default(),
@@ -36,21 +33,21 @@ pub async fn core_append() {
 
     assert_eq!(core.len(), 3);
     assert_eq!(
-        core.get(0).await.unwrap().map(first),
-        Some(br#"{"hello":"world"}"#.to_vec())
+        core.get(0).await.unwrap().unwrap().0,
+        br#"{"hello":"world"}"#,
     );
     assert_eq!(
-        core.get(1).await.unwrap().map(first),
-        Some(br#"{"hello":"mundo"}"#.to_vec())
+        core.get(1).await.unwrap().unwrap().0,
+        br#"{"hello":"mundo"}"#,
     );
     assert_eq!(
-        core.get(2).await.unwrap().map(first),
-        Some(br#"{"hello":"welt"}"#.to_vec())
+        core.get(2).await.unwrap().unwrap().0,
+        br#"{"hello":"welt"}"#,
     );
 }
 
-#[test]
-pub async fn core_signatures() {
+#[tokio::test]
+async fn core_signatures() {
     let keypair = generate_keypair();
     let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
     let mut core = Core::new(
@@ -68,14 +65,22 @@ pub async fn core_signatures() {
     core.append(data2, None).await.unwrap();
 
     let mut merkle = Merkle::default();
-    merkle.next(Hash::from_leaf(data1), data1.len() as u64);
-    let signature1 = BlockSignature::new(
-        sign(&keypair2.public, &keypair2.secret, &Hash::from_leaf(data1)),
+    merkle.next(Hash::from_leaf(data1).unwrap(), data1.len() as u32);
+    let signature1 = Signature::new(
+        sign(
+            &keypair2.public,
+            &keypair2.secret,
+            &Hash::from_leaf(data1).unwrap(),
+        ),
         sign(&keypair2.public, &keypair2.secret, &hash_tree(&merkle)),
     );
-    merkle.next(Hash::from_leaf(data2), data2.len() as u64);
-    let signature2 = BlockSignature::new(
-        sign(&keypair2.public, &keypair2.secret, &Hash::from_leaf(data2)),
+    merkle.next(Hash::from_leaf(data2).unwrap(), data2.len() as u32);
+    let signature2 = Signature::new(
+        sign(
+            &keypair2.public,
+            &keypair2.secret,
+            &Hash::from_leaf(data2).unwrap(),
+        ),
         sign(&keypair2.public, &keypair2.secret, &hash_tree(&merkle)),
     );
 
@@ -90,8 +95,8 @@ pub async fn core_signatures() {
     );
 }
 
-#[test]
-pub async fn core_get_head() {
+#[tokio::test]
+async fn core_get_head() {
     let keypair = generate_keypair();
     let mut core = Core::new(
         IndexAccessMemory::default(),
@@ -110,21 +115,21 @@ pub async fn core_get_head() {
 
     assert_eq!(core.len(), 3);
     assert_eq!(
-        core.get(1).await.unwrap().map(first),
-        Some(br#"{"hello":"mundo"}"#.to_vec())
+        core.get(1).await.unwrap().unwrap().0,
+        br#"{"hello":"mundo"}"#,
     );
     assert_eq!(
-        core.get(2).await.unwrap().map(first),
-        Some(br#"{"hello":"welt"}"#.to_vec())
+        core.get(2).await.unwrap().unwrap().0,
+        br#"{"hello":"welt"}"#,
     );
     assert_eq!(
-        core.head().await.unwrap().map(first),
-        Some(br#"{"hello":"welt"}"#.to_vec())
+        core.head().await.unwrap().unwrap().0,
+        br#"{"hello":"welt"}"#,
     );
 }
 
-#[test]
-pub async fn core_append_no_secret_key() {
+#[tokio::test]
+async fn core_append_no_secret_key() {
     let keypair = generate_keypair();
     let mut core = Core::new(IndexAccessMemory::default(), keypair.public, None)
         .await
@@ -134,8 +139,8 @@ pub async fn core_append_no_secret_key() {
     assert_eq!(core.len(), 0);
 }
 
-#[test]
-pub async fn core_disk_append() {
+#[tokio::test]
+async fn core_disk_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let keypair = generate_keypair();
     let mut core = Core::new(
@@ -151,17 +156,17 @@ pub async fn core_disk_append() {
 
     assert_eq!(core.len(), 2);
     assert_eq!(
-        core.get(0).await.unwrap().map(first),
-        Some(b"hello world".to_vec())
+        core.get(0).await.unwrap().unwrap().0,
+        b"hello world",
     );
     assert_eq!(
-        core.get(1).await.unwrap().map(first),
-        Some(b"this is datacore".to_vec())
+        core.get(1).await.unwrap().unwrap().0,
+        b"this is datacore",
     );
 }
 
-#[test]
-pub async fn core_disk_persists() {
+#[tokio::test]
+async fn core_disk_persists() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let keypair = generate_keypair();
     let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
@@ -185,22 +190,13 @@ pub async fn core_disk_persists() {
     .unwrap();
 
     assert_eq!(core.len(), 2);
-    assert_eq!(
-        core.get(0).await.unwrap().map(first),
-        Some(b"hello world".to_vec())
-    );
-    assert_eq!(
-        core.get(1).await.unwrap().map(first),
-        Some(b"this is datacore".to_vec())
-    );
+    assert_eq!(core.get(0).await.unwrap().unwrap().0, b"hello world",);
+    assert_eq!(core.get(1).await.unwrap().unwrap().0, b"this is datacore",);
 }
 
-fn first<A, B>(t: (A, B)) -> A {
-    t.0
-}
 fn hash_tree(merkle: &Merkle) -> Hash {
     let roots = merkle.roots();
     let hashes = roots.iter().map(|root| root.hash()).collect::<Vec<&Hash>>();
-    let lengths = roots.iter().map(|root| root.length()).collect::<Vec<u64>>();
+    let lengths = roots.iter().map(|root| root.length()).collect::<Vec<u32>>();
     Hash::from_roots(&hashes, &lengths)
 }

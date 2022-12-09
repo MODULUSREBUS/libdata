@@ -1,15 +1,5 @@
-use blake3::derive_key;
-use rand_chacha::rand_core::SeedableRng;
-use rand_chacha::ChaCha20Rng;
+//! Export [PublicKey] and [SecretKey].
+//! Export [DiscoveryKey] and a function to create it from a [PublicKey].
 
-pub use datacore::{generate_keypair, Keypair, PublicKey, SecretKey};
-pub use protocol::{discovery_key, DiscoveryKey};
-
-/// Derive a named [Keypair] from a base [SecretKey].
-#[must_use]
-pub fn derive_keypair(key: &SecretKey, name: &str) -> Keypair {
-    let seed: <ChaCha20Rng as SeedableRng>::Seed = derive_key(name, &key.to_bytes());
-
-    let mut rng = ChaCha20Rng::from_seed(seed);
-    Keypair::generate(&mut rng)
-}
+pub use datacore::{PublicKey, SecretKey};
+pub use protocol::{discovery_key as discovery, DiscoveryKey};

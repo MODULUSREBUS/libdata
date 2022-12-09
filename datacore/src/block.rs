@@ -3,32 +3,35 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Cursor, Read};
 use std::mem::size_of;
 
-pub use ed25519_dalek::{Signature, SIGNATURE_LENGTH};
+/// Byte length of the [Signature].
+pub const SIGNATURE_LENGTH: usize = 2 * ed25519_dalek::SIGNATURE_LENGTH;
 
-/// [BlockSignature] holds [Signature]s - `data` and `tree` - for a [Block].
+/// [Signature] holds 2 [Block] [ed255519_dalek::Signature]s:
+/// - `data` - signature for the block data
+/// - `tree` - signature for the block position in the merkle tree
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct BlockSignature {
-    data: Signature,
-    tree: Signature,
+pub struct Signature {
+    data: ed25519_dalek::Signature,
+    tree: ed25519_dalek::Signature,
 }
 
-impl BlockSignature {
+impl Signature {
     /// Create a new [BlockSignature].
     #[must_use]
     #[inline]
-    pub fn new(data: Signature, tree: Signature) -> Self {
+    pub fn new(data: ed25519_dalek::Signature, tree: ed25519_dalek::Signature) -> Self {
         Self { data, tree }
     }
 
     /// Get data [Signature].
     #[must_use]
-    pub fn data(&self) -> &Signature {
+    pub fn data(&self) -> &ed25519_dalek::Signature {
         &self.data
     }
 
     /// Get tree [Signature].
     #[must_use]
-    pub fn tree(&self) -> &Signature {
+    pub fn tree(&self) -> &ed25519_dalek::Signature {
         &self.tree
     }
 }
@@ -41,16 +44,16 @@ impl BlockSignature {
 pub struct Block {
     offset: u64,
     length: u32,
-    signature: BlockSignature,
+    signature: Signature,
 }
 
-pub const BLOCK_LENGTH: usize = size_of::<u64>() + size_of::<u32>() + (2 * SIGNATURE_LENGTH);
+pub const BLOCK_LENGTH: usize = size_of::<u64>() + size_of::<u32>() + SIGNATURE_LENGTH;
 
 impl Block {
     /// Create a new [Block].
     #[must_use]
     #[inline]
-    pub fn new(offset: u64, length: u32, signature: BlockSignature) -> Self {
+    pub fn new(offset: u64, length: u32, signature: Signature) -> Self {
         Self {
             offset,
             length,
@@ -77,14 +80,14 @@ impl Block {
         let offset = rdr.read_u64::<LittleEndian>()?;
         let length = rdr.read_u32::<LittleEndian>()?;
 
-        let mut data_signature = [0u8; SIGNATURE_LENGTH];
+        let mut data_signature = [0u8; ed25519_dalek::SIGNATURE_LENGTH];
         rdr.read_exact(&mut data_signature)?;
-        let mut tree_signature = [0u8; SIGNATURE_LENGTH];
+        let mut tree_signature = [0u8; ed25519_dalek::SIGNATURE_LENGTH];
         rdr.read_exact(&mut tree_signature)?;
 
-        let signature = BlockSignature::new(
-            Signature::from_bytes(&data_signature)?,
-            Signature::from_bytes(&tree_signature)?,
+        let signature = Signature::new(
+            ed25519_dalek::Signature::from_bytes(&data_signature)?,
+            ed25519_dalek::Signature::from_bytes(&tree_signature)?,
         );
 
         Ok(Self {
@@ -109,8 +112,8 @@ impl Block {
     /// Get the [BlockSignature] of this [Block].
     #[must_use]
     #[inline]
-    pub fn signature(&self) -> BlockSignature {
-        self.signature.clone()
+    pub fn signature(&self) -> &Signature {
+        &self.signature
     }
 }
 
@@ -120,9 +123,10 @@ mod tests {
 
     #[test]
     pub fn to_bytes_from_bytes() -> Result<()> {
-        let data = Signature::from_bytes(&[2u8; SIGNATURE_LENGTH])?;
-        let tree = Signature::from_bytes(&[7u8; SIGNATURE_LENGTH])?;
-        let signature = BlockSignature::new(data, tree);
+        let signature = Signature::new(
+            ed25519_dalek::Signature::from_bytes(&[2u8; ed25519_dalek::SIGNATURE_LENGTH])?,
+            ed25519_dalek::Signature::from_bytes(&[7u8; ed25519_dalek::SIGNATURE_LENGTH])?,
+        );
         let block = Block::new(1, 8, signature);
         let block2 = Block::from_bytes(&block.to_bytes()?)?;
         assert_eq!(block2, block);
@@ -130,9 +134,10 @@ mod tests {
     }
     #[test]
     pub fn from_bytes_fails_on_incomplete_input() -> Result<()> {
-        let data = Signature::from_bytes(&[2u8; SIGNATURE_LENGTH])?;
-        let tree = Signature::from_bytes(&[7u8; SIGNATURE_LENGTH])?;
-        let signature = BlockSignature::new(data, tree);
+        let signature = Signature::new(
+            ed25519_dalek::Signature::from_bytes(&[2u8; ed25519_dalek::SIGNATURE_LENGTH])?,
+            ed25519_dalek::Signature::from_bytes(&[7u8; ed25519_dalek::SIGNATURE_LENGTH])?,
+        );
         let block = Block::new(1, 8, signature);
         let result = Block::from_bytes(&block.to_bytes()?[1..]);
         assert!(result.is_err());
@@ -140,9 +145,9 @@ mod tests {
     }
     #[test]
     pub fn get_signatures() -> Result<()> {
-        let data = Signature::from_bytes(&[2u8; SIGNATURE_LENGTH])?;
-        let tree = Signature::from_bytes(&[7u8; SIGNATURE_LENGTH])?;
-        let signature = BlockSignature::new(data, tree);
+        let data = ed25519_dalek::Signature::from_bytes(&[2u8; ed25519_dalek::SIGNATURE_LENGTH])?;
+        let tree = ed25519_dalek::Signature::from_bytes(&[7u8; ed25519_dalek::SIGNATURE_LENGTH])?;
+        let signature = Signature::new(data, tree);
         assert_eq!(*signature.data(), data);
         assert_eq!(*signature.tree(), tree);
         Ok(())

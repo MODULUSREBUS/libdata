@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::replication::ReplicaTrait;
-use crate::{discovery_key, DiscoveryKey, PublicKey};
+use crate::{key, DiscoveryKey, PublicKey};
 
 /// [Link] command.
 pub enum Command {
@@ -46,7 +46,7 @@ impl Handle {
 
     /// Reopen a replica.
     pub fn reopen(&mut self, key: &PublicKey) -> Result<()> {
-        self.send(Command::ReOpen(discovery_key(key.as_bytes())))
+        self.send(Command::ReOpen(key::discovery(key.as_bytes())))
     }
 
     /// Close a channel by [DiscoveryKey].

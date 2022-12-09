@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::replication::{Data, DataOrRequest, ReplicaTrait, Request};
-use crate::{BlockSignature, Core, IndexAccess, Signature, MAX_CORE_LENGTH};
+use crate::{ed25519_dalek, Signature, Core, IndexAccess, MAX_CORE_LENGTH};
 
 /// CoreReplica describes eager, full, and sequential synchronization logic
 /// for replicating [Core] over [Link].
@@ -73,9 +73,9 @@ where
         let mut core = self.core.lock().await;
         let len = core.len();
         if data.index == len {
-            let signature = BlockSignature::new(
-                Signature::from_bytes(&data.data_signature).unwrap(),
-                Signature::from_bytes(&data.tree_signature).unwrap(),
+            let signature = Signature::new(
+                ed25519_dalek::Signature::from_bytes(&data.data_signature).unwrap(),
+                ed25519_dalek::Signature::from_bytes(&data.tree_signature).unwrap(),
             );
             core.append(&data.data, Some(signature)).await?;
 

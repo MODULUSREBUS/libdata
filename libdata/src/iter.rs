@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::sync::Mutex;
 
-use crate::{BlockSignature, Core, IndexAccess};
+use crate::{Signature, Core, IndexAccess};
 
 type ReadTask<T> = Pin<Box<dyn Future<Output = T>>>;
 
@@ -34,7 +34,7 @@ where
         index: u32,
     ) -> ReadTask<(u32, Option<Vec<u8>>)> {
         async move {
-            let result: Result<Option<(Vec<u8>, BlockSignature)>>;
+            let result: Result<Option<(Vec<u8>, Signature)>>;
             {
                 let mut core = core.lock().await;
                 result = core.get(index).await;

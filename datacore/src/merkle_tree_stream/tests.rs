@@ -10,10 +10,6 @@ impl HashMethods for H {
     type Hash = Vec<u8>;
     type Node = DefaultNode<Vec<u8>>;
 
-    fn leaf(&self, data: &[u8]) -> Self::Hash {
-        hex_digest(Algorithm::SHA256, &data).as_bytes().to_vec()
-    }
-
     fn parent(&self, a: &Self::Node, b: &Self::Node) -> Self::Hash {
         let mut buf = Vec::with_capacity(a.hash().len() + b.hash().len());
         buf.extend_from_slice(a.hash());
@@ -21,13 +17,19 @@ impl HashMethods for H {
         hex_digest(Algorithm::SHA256, &buf).as_bytes().to_vec()
     }
 }
+impl H {
+    fn leaf(&self, data: &[u8]) -> <Self as HashMethods>::Hash {
+        hex_digest(Algorithm::SHA256, &data).as_bytes().to_vec()
+    }
+}
+
 
 #[test]
 fn mts_one_node() {
     let roots = Vec::new();
     let mut mts = MerkleTreeStream::new(H, roots);
     let data = b"hello";
-    mts.next(H.leaf(data), data.len() as u64);
+    mts.next(H.leaf(data), data.len() as u32);
 
     // check node
     let n = mts.roots.pop().unwrap();
@@ -100,7 +102,7 @@ fn build_mts(data: &[Vec<u8>]) -> MerkleTreeStream<H> {
     let roots = vec![];
     let mut mts = MerkleTreeStream::new(H, roots);
     for bs in data {
-        mts.next(H.leaf(bs), bs.len() as u64);
+        mts.next(H.leaf(bs), bs.len() as u32);
     }
     mts
 }
@@ -178,12 +180,6 @@ impl HashMethods for XorHashMethods {
     type Hash = Vec<u8>;
     type Node = DefaultNode<Vec<u8>>;
 
-    fn leaf(&self, data: &[u8]) -> Self::Hash {
-        // bitwise XOR the data into u8
-        let hash = data.iter().fold(0, |acc, x| acc ^ x);
-        vec![hash]
-    }
-
     fn parent(&self, a: &Self::Node, b: &Self::Node) -> Self::Hash {
         let hash = Node::hash(a)
             .iter()
@@ -192,16 +188,24 @@ impl HashMethods for XorHashMethods {
         vec![hash]
     }
 }
+impl XorHashMethods {
+    fn leaf(&self, data: &[u8]) -> <Self as HashMethods>::Hash {
+        // bitwise XOR the data into u8
+        let hash = data.iter().fold(0, |acc, x| acc ^ x);
+        vec![hash]
+    }
+}
+
 
 #[test]
 fn xor_hash_example() {
     let mut mts = MerkleTreeStream::new(XorHashMethods, Vec::new());
     let data = b"hello";
-    mts.next(XorHashMethods.leaf(data), data.len() as u64);
+    mts.next(XorHashMethods.leaf(data), data.len() as u32);
     let data = b"hashed";
-    mts.next(XorHashMethods.leaf(data), data.len() as u64);
+    mts.next(XorHashMethods.leaf(data), data.len() as u32);
     let data = b"world";
-    mts.next(XorHashMethods.leaf(data), data.len() as u64);
+    mts.next(XorHashMethods.leaf(data), data.len() as u32);
 
     // Constructed tree:
     //
