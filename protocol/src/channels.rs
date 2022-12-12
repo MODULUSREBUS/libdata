@@ -11,13 +11,13 @@ fn error<T>(kind: ErrorKind, msg: &str) -> Result<T> {
 
 #[derive(Clone, Debug)]
 struct LocalState {
-    local_id: usize,
+    local_id: u32,
     key: Key,
 }
 
 #[derive(Clone, Debug)]
 struct RemoteState {
-    remote_id: usize,
+    remote_id: u32,
     remote_capability: Option<Vec<u8>>,
 }
 
@@ -39,14 +39,14 @@ impl ChannelHandle {
         }
     }
     #[inline]
-    fn new_local(local_id: usize, discovery_key: DiscoveryKey, key: Key) -> Self {
+    fn new_local(local_id: u32, discovery_key: DiscoveryKey, key: Key) -> Self {
         let mut this = Self::new(discovery_key);
         this.attach_local(local_id, key);
         this
     }
     #[inline]
     fn new_remote(
-        remote_id: usize,
+        remote_id: u32,
         discovery_key: DiscoveryKey,
         remote_capability: Option<Vec<u8>>,
     ) -> Self {
@@ -56,12 +56,12 @@ impl ChannelHandle {
     }
 
     #[inline]
-    pub fn attach_local(&mut self, local_id: usize, key: Key) {
+    pub fn attach_local(&mut self, local_id: u32, key: Key) {
         let local_state = LocalState { local_id, key };
         self.local_state = Some(local_state);
     }
     #[inline]
-    pub fn attach_remote(&mut self, remote_id: usize, remote_capability: Option<Vec<u8>>) {
+    pub fn attach_remote(&mut self, remote_id: u32, remote_capability: Option<Vec<u8>>) {
         let remote_state = RemoteState {
             remote_id,
             remote_capability,
@@ -74,11 +74,11 @@ impl ChannelHandle {
         &self.discovery_key
     }
     #[inline]
-    pub fn local_id(&self) -> Option<usize> {
+    pub fn local_id(&self) -> Option<u32> {
         self.local_state.as_ref().map(|s| s.local_id)
     }
     #[inline]
-    pub fn remote_id(&self) -> Option<usize> {
+    pub fn remote_id(&self) -> Option<u32> {
         self.remote_state.as_ref().map(|s| s.remote_id)
     }
 
@@ -122,28 +122,32 @@ impl ChannelMap {
         }
     }
 
-    pub fn attach_local(&mut self, key: Key) -> &ChannelHandle {
+    pub fn attach_local(&mut self, key: Key) -> Result<&ChannelHandle> {
         let discovery_key = discovery_key(&key);
         let discovery_key_hex = hex::encode(&discovery_key);
-        let local_id = self.alloc_local();
+        let local_id_raw = self.alloc_local();
+        let local_id = u32::try_from(local_id_raw)?;
 
         self.channels
             .entry(discovery_key_hex.clone())
             .and_modify(|channel| channel.attach_local(local_id, key))
             .or_insert_with(|| ChannelHandle::new_local(local_id, discovery_key, key));
 
-        self.local_id[local_id] = Some(discovery_key_hex.clone());
-        self.channels.get(&discovery_key_hex).unwrap()
+        self.local_id[local_id_raw] = Some(discovery_key_hex.clone());
+        self.channels
+            .get(&discovery_key_hex)
+            .ok_or_else(|| anyhow!("no channel for id"))
     }
 
     pub fn attach_remote(
         &mut self,
         discovery_key: DiscoveryKey,
-        remote_id: usize,
+        remote_id: u32,
         remote_capability: Option<Vec<u8>>,
-    ) -> &ChannelHandle {
+    ) -> Result<&ChannelHandle> {
         let discovery_key_hex = hex::encode(&discovery_key);
-        self.alloc_remote(remote_id);
+        let remote_id_raw = usize::try_from(remote_id)?;
+        self.alloc_remote(remote_id_raw);
 
         self.channels
             .entry(discovery_key_hex.clone())
@@ -152,8 +156,10 @@ impl ChannelMap {
                 ChannelHandle::new_remote(remote_id, discovery_key, remote_capability)
             });
 
-        self.remote_id[remote_id] = Some(discovery_key_hex.clone());
-        self.channels.get(&discovery_key_hex).unwrap()
+        self.remote_id[remote_id_raw] = Some(discovery_key_hex.clone());
+        self.channels
+            .get(&discovery_key_hex)
+            .ok_or_else(|| anyhow!("no channel for id"))
     }
 
     pub fn get(&self, discovery_key: &DiscoveryKey) -> Option<&ChannelHandle> {
@@ -180,17 +186,20 @@ impl ChannelMap {
         let channel = self.channels.get(&discovery_key_hex);
         if let Some(channel) = channel {
             if let Some(local_id) = channel.local_id() {
-                self.local_id[local_id] = None;
+                let local_id_raw = usize::try_from(local_id).unwrap();
+                self.local_id[local_id_raw] = None;
             }
             if let Some(remote_id) = channel.remote_id() {
-                self.remote_id[remote_id] = None;
+                let remote_id_raw = usize::try_from(remote_id).unwrap();
+                self.remote_id[remote_id_raw] = None;
             }
         }
         self.channels.remove(&discovery_key_hex);
     }
 
-    pub fn prepare_to_verify(&self, local_id: usize) -> Result<(&Key, Option<&Vec<u8>>)> {
-        let channel_handle = match self.get_local(local_id) {
+    pub fn prepare_to_verify(&self, local_id: u32) -> Result<(&Key, Option<&Vec<u8>>)> {
+        let local_id_raw = usize::try_from(local_id)?;
+        let channel_handle = match self.get_local(local_id_raw) {
             None => return error(ErrorKind::NotFound, "Channel not found"),
             Some(handle) => handle,
         };

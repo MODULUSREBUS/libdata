@@ -1,69 +1,36 @@
+use anyhow::{bail, ensure, Result};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use prost::Message as _;
-use std::fmt;
-use std::io;
+use std::io::Write;
+use std::mem::size_of;
 
 use super::schema::{Close, Data, Open, Request};
-use super::MAX_MESSAGE_SIZE;
-
-/// Error if the buffer has insufficient size to encode a message.
-#[derive(Debug)]
-pub struct EncodeError {
-    required: usize,
-}
-
-impl fmt::Display for EncodeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Cannot encode message: Write buffer is full. ({})",
-            self.required,
-        )
-    }
-}
-
-impl EncodeError {
-    fn new(required: usize) -> Self {
-        Self { required }
-    }
-}
-
-impl From<prost::EncodeError> for EncodeError {
-    fn from(e: prost::EncodeError) -> Self {
-        Self::new(e.required_capacity())
-    }
-}
-
-impl From<EncodeError> for io::Error {
-    fn from(e: EncodeError) -> Self {
-        io::Error::new(io::ErrorKind::Other, format!("{}", e))
-    }
-}
 
 /// Encode data into a buffer.
 ///
 /// This trait is implemented on data frames and their components
 /// (channel messages, messages, and individual message types through prost).
-pub trait Encoder: Sized + fmt::Debug {
+pub trait Encoder: Sized + std::fmt::Debug {
     /// Calculates the length that the encoded message needs.
     fn encoded_len(&self) -> usize;
 
     /// Encodes the message to a buffer.
     ///
     /// An error will be returned if the buffer does not have sufficient capacity.
-    fn encode(&self, buf: &mut [u8]) -> Result<usize, EncodeError>;
+    fn encode(&self, buf: &mut [u8]) -> Result<usize>;
 }
 
 impl Encoder for &[u8] {
+    #[inline]
     fn encoded_len(&self) -> usize {
         self.len()
     }
 
-    fn encode(&self, buf: &mut [u8]) -> Result<usize, EncodeError> {
+    #[inline]
+    fn encode(&self, mut buf: &mut [u8]) -> Result<usize> {
         let len = self.encoded_len();
-        if len > buf.len() {
-            return Err(EncodeError::new(len));
-        }
-        buf[..len].copy_from_slice(&self[..]);
+        ensure!(buf.len() >= len);
+        buf.write_all(self)?;
         Ok(len)
     }
 }
@@ -76,44 +43,51 @@ pub enum FrameType {
 }
 
 /// A frame of data, either a buffer or a message.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Frame {
     /// A raw binary buffer. Used in the handshaking phase.
     Raw(Vec<u8>),
     /// A message. Used for everything after the handshake.
-    Message(ChannelMessage),
+    Message(Packet),
 }
-
-impl fmt::Debug for Frame {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Frame::Raw(buf) => write!(f, "Frame(Raw <{}>)", buf.len()),
-            Frame::Message(message) => write!(f, "Frame({:?})", message),
-        }
-    }
-}
-
-impl From<ChannelMessage> for Frame {
-    fn from(m: ChannelMessage) -> Self {
-        Self::Message(m)
-    }
-}
-
 impl From<Vec<u8>> for Frame {
+    #[inline]
     fn from(m: Vec<u8>) -> Self {
         Self::Raw(m)
     }
 }
-
+impl From<Packet> for Frame {
+    #[inline]
+    fn from(m: Packet) -> Self {
+        Self::Message(m)
+    }
+}
 impl Frame {
-    /// Decode a frame from a buffer.
-    pub fn decode(buf: &[u8], frame_type: &FrameType) -> Result<Self, io::Error> {
+    /// Decode [Frame] header.
+    #[inline]
+    pub fn decode_header(mut buf: &[u8]) -> Result<Option<usize>> {
+        if buf.len() >= Self::header_len() {
+            let body_len = buf.read_u32::<LittleEndian>()?;
+            Ok(Some(usize::try_from(body_len)?))
+        } else {
+            Ok(None)
+        }
+    }
+    /// Decode a [Frame] from a buffer.
+    #[inline]
+    pub fn decode_body(buf: &[u8], frame_type: &FrameType) -> Result<Self> {
         match frame_type {
             FrameType::Raw => Ok(Frame::Raw(buf.to_vec())),
-            FrameType::Message => Ok(Frame::Message(ChannelMessage::decode(buf)?)),
+            FrameType::Message => Ok(Frame::Message(Packet::decode(buf)?)),
         }
     }
 
+    /// Get frame header size.
+    #[inline]
+    pub const fn header_len() -> usize {
+        size_of::<u32>()
+    }
+    #[inline]
     fn body_len(&self) -> usize {
         match self {
             Self::Raw(message) => message.as_slice().encoded_len(),
@@ -121,25 +95,88 @@ impl Frame {
         }
     }
 }
-
 impl Encoder for Frame {
+    #[inline]
     fn encoded_len(&self) -> usize {
-        let body_len = self.body_len();
-        body_len + varinteger::length(body_len as u64)
+        Self::header_len() + self.body_len()
+    }
+    #[inline]
+    fn encode(&self, mut buf: &mut [u8]) -> Result<usize> {
+        let len = self.encoded_len();
+        ensure!(buf.len() >= len);
+
+        let body_len = u32::try_from(self.body_len())?;
+        buf.write_u32::<LittleEndian>(body_len)?;
+        match self {
+            Self::Raw(ref msg) => msg.as_slice().encode(buf),
+            Self::Message(ref msg) => msg.encode(buf),
+        }?;
+        Ok(len)
+    }
+}
+
+/// A message on a channel.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Packet {
+    channel: u32,
+    message: Message,
+}
+impl Packet {
+    /// Create a new message.
+    #[inline]
+    pub fn new(channel: u32, message: Message) -> Self {
+        Self { channel, message }
     }
 
-    fn encode(&self, buf: &mut [u8]) -> Result<usize, EncodeError> {
-        let len = self.encoded_len();
-        if buf.len() < len {
-            return Err(EncodeError::new(len));
-        }
-        let body_len = self.body_len();
-        let header_len = len - body_len;
-        varinteger::encode(body_len as u64, &mut buf[..header_len]);
-        match self {
-            Self::Raw(ref message) => message.as_slice().encode(&mut buf[header_len..]),
-            Self::Message(ref message) => message.encode(&mut buf[header_len..]),
-        }?;
+    /// Consume self and return (channel, Message).
+    #[inline]
+    pub fn into_split(self) -> (u32, Message) {
+        (self.channel, self.message)
+    }
+    /// Access `channel`.
+    #[must_use]
+    #[inline]
+    pub fn channel(&self) -> u32 {
+        self.channel
+    }
+    /// Access `message`.
+    #[must_use]
+    #[inline]
+    pub fn message(&self) -> &Message {
+        &self.message
+    }
+
+    /// Decode a channel message from a buffer.
+    ///
+    /// Note: `buf` has to have a valid length, and the length
+    /// prefix has to be removed already.
+    #[inline]
+    pub fn decode(mut buf: &[u8]) -> Result<Self> {
+        ensure!(!buf.is_empty());
+        let channel = buf.read_u32::<LittleEndian>()?;
+        let message = Message::decode(buf)?;
+        Ok(Self { channel, message })
+    }
+
+    #[inline]
+    const fn header_len() -> usize {
+        size_of::<u32>()
+    }
+}
+impl Encoder for Packet {
+    #[inline]
+    fn encoded_len(&self) -> usize {
+        Self::header_len() + self.message.encoded_len()
+    }
+    #[inline]
+    fn encode(&self, mut buf: &mut [u8]) -> Result<usize> {
+        let header_len = Self::header_len();
+        let body_len = self.message.encoded_len();
+        let len = header_len + body_len;
+        ensure!(buf.len() >= len);
+
+        buf.write_u32::<LittleEndian>(self.channel)?;
+        self.message.encode(&mut buf[..body_len])?;
         Ok(len)
     }
 }
@@ -156,24 +193,22 @@ pub enum Message {
     /// Send a Data block.
     Data(Data),
 }
-
 impl Message {
     /// Decode a message from a buffer.
-    pub fn decode(buf: &[u8], typ: u64) -> io::Result<Self> {
-        match typ {
+    #[inline]
+    pub fn decode(mut buf: &[u8]) -> Result<Self> {
+        let kind = buf.read_u8()?;
+        match kind {
             0 => Ok(Self::Open(Open::decode(buf)?)),
             1 => Ok(Self::Close(Close::decode(buf)?)),
             2 => Ok(Self::Request(Request::decode(buf)?)),
             3 => Ok(Self::Data(Data::decode(buf)?)),
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Invalid message type",
-            )),
+            _ => bail!("invalid message kind"),
         }
     }
-    /// Wire type of this message.
-    #[must_use]
-    pub fn typ(&self) -> u64 {
+    /// Wire kind of this message.
+    #[inline]
+    fn kind(&self) -> u8 {
         match self {
             Self::Open(_) => 0,
             Self::Close(_) => 1,
@@ -181,10 +216,13 @@ impl Message {
             Self::Data(_) => 3,
         }
     }
-}
 
-impl Encoder for Message {
-    fn encoded_len(&self) -> usize {
+    #[inline]
+    const fn header_len() -> usize {
+        size_of::<u8>()
+    }
+    #[inline]
+    fn body_len(&self) -> usize {
         match self {
             Self::Open(ref message) => message.encoded_len(),
             Self::Close(ref message) => message.encoded_len(),
@@ -192,8 +230,15 @@ impl Encoder for Message {
             Self::Data(ref message) => message.encoded_len(),
         }
     }
-
-    fn encode(&self, buf: &mut [u8]) -> Result<usize, EncodeError> {
+}
+impl Encoder for Message {
+    #[inline]
+    fn encoded_len(&self) -> usize {
+        Self::header_len() + self.body_len()
+    }
+    #[inline]
+    fn encode(&self, mut buf: &mut [u8]) -> Result<usize> {
+        buf.write_u8(self.kind())?;
         match self {
             Self::Open(ref message) => encode_prost_message(message, buf),
             Self::Close(ref message) => encode_prost_message(message, buf),
@@ -202,114 +247,11 @@ impl Encoder for Message {
         }
     }
 }
-
-fn encode_prost_message(
-    msg: &impl prost::Message,
-    mut buf: &mut [u8],
-) -> Result<usize, EncodeError> {
+#[inline]
+fn encode_prost_message(msg: &impl prost::Message, mut buf: &mut [u8]) -> Result<usize> {
     let len = msg.encoded_len();
     msg.encode(&mut buf)?;
     Ok(len)
-}
-
-impl fmt::Display for Message {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Open(msg) => write!(
-                f,
-                "Open(discovery_key: {}, capability: <{}>)",
-                hex::encode(&msg.discovery_key),
-                msg.capability.as_ref().map_or(0, Vec::len),
-            ),
-            Self::Close(msg) => write!(
-                f,
-                "Close(discovery_key: {})",
-                hex::encode(&msg.discovery_key),
-            ),
-            Self::Request(msg) => write!(f, "Request(index: {})", msg.index,),
-            Self::Data(msg) => write!(
-                f,
-                "Data(index: {}, data: <{}>, data_signature: <{}>, tree_signature: <{}>)",
-                msg.index,
-                msg.data.len(),
-                msg.data_signature.len(),
-                msg.tree_signature.len(),
-            ),
-        }
-    }
-}
-
-/// A message on a channel.
-#[derive(Clone, PartialEq)]
-pub struct ChannelMessage {
-    pub channel: u64,
-    pub message: Message,
-}
-
-impl fmt::Debug for ChannelMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ChannelMessage({}, {})", self.channel, self.message)
-    }
-}
-
-impl ChannelMessage {
-    /// Create a new message.
-    pub fn new(channel: u64, message: Message) -> Self {
-        Self { channel, message }
-    }
-
-    /// Consume self and return (channel, Message).
-    pub fn into_split(self) -> (u64, Message) {
-        (self.channel, self.message)
-    }
-
-    /// Decode a channel message from a buffer.
-    ///
-    /// Note: `buf` has to have a valid length, and the length
-    /// prefix has to be removed already.
-    pub fn decode(buf: &[u8]) -> io::Result<Self> {
-        if buf.is_empty() {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "received empty message",
-            ));
-        }
-        let mut header = 0u64;
-        let headerlen = varinteger::decode(buf, &mut header);
-        let channel = header >> 4;
-        let typ = header & 0b1111;
-        let message = Message::decode(&buf[headerlen..], typ)?;
-
-        let channel_message = Self { channel, message };
-
-        Ok(channel_message)
-    }
-
-    fn header(&self) -> u64 {
-        let typ = self.message.typ();
-        self.channel << 4 | typ
-    }
-}
-
-impl Encoder for ChannelMessage {
-    fn encoded_len(&self) -> usize {
-        let header_len = varinteger::length(self.header());
-        let body_len = self.message.encoded_len();
-        header_len + body_len
-    }
-
-    fn encode(&self, buf: &mut [u8]) -> Result<usize, EncodeError> {
-        let header = self.header();
-        let header_len = varinteger::length(header);
-        let body_len = self.message.encoded_len();
-        let len = header_len + body_len;
-        if buf.len() < len || len > MAX_MESSAGE_SIZE as usize {
-            return Err(EncodeError::new(len));
-        }
-        varinteger::encode(header, &mut buf[..header_len]);
-        self.message.encode(&mut buf[header_len..len])?;
-        Ok(len)
-    }
 }
 
 #[cfg(test)]
@@ -317,13 +259,31 @@ mod tests {
     use super::*;
     use getrandom::getrandom;
 
+    #[test]
+    fn encode_decode_raw() {
+        let expected_len = 256;
+        let mut data = vec![0u8; expected_len];
+        getrandom(&mut data).expect("Could not getrandom");
+        let frame = Frame::from(data);
+        let mut buf = vec![0u8; frame.encoded_len()];
+        println!("buffer size: {}", buf.len());
+        let n = frame.encode(&mut buf[..]).unwrap();
+        let header_len = Frame::header_len();
+        assert_eq!(expected_len + header_len, n);
+        let body_len = Frame::decode_header(&buf[..]).unwrap().unwrap();
+        let message_len = header_len + body_len;
+        let decoded = Frame::decode_body(&buf[header_len..message_len], &FrameType::Raw).unwrap();
+        assert_eq!(expected_len, body_len);
+        assert_eq!(frame, decoded);
+    }
+
     macro_rules! message_enc_dec {
         ($( $msg:expr ),*) => {
             $(
                 let mut channel: [u8; 1] = Default::default();
                 getrandom(&mut channel)
                     .expect("Could not getrandom");
-                let channel = u64::from(channel[0]);
+                let channel = u32::from(channel[0]);
                 let channel_message = ChannelMessage::new(channel, $msg);
                 let mut buf = vec![0u8; channel_message.encoded_len()];
                 let n = channel_message.encode(&mut buf[..])
@@ -338,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn encode_decode() {
+    fn encode_decode_message() {
         message_enc_dec! {
             Message::Open(Open {
                 discovery_key: vec![2u8; 20],

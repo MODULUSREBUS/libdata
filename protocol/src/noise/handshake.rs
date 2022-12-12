@@ -1,8 +1,8 @@
+use anyhow::{anyhow, bail, ensure, Result};
 use blake2_rfc::blake2b::Blake2b;
 use getrandom::getrandom;
 use prost::Message;
-use snow::{Builder, Error as SnowError, HandshakeState};
-use std::io::{Error, ErrorKind, Result};
+use snow::{Builder, HandshakeState};
 
 use super::CAP_NS_BUF;
 use crate::schema::NoisePayload;
@@ -12,15 +12,8 @@ pub use snow::Keypair;
 const CIPHER_KEY_LENGTH: usize = 32;
 const HANDSHAKE_PATTERN: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2b";
 
-fn wrap_error(e: &SnowError) -> Error {
-    Error::new(
-        ErrorKind::PermissionDenied,
-        format!("handshake error: {}", e),
-    )
-}
-
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct HandshakeResult {
+pub struct Outcome {
     pub is_initiator: bool,
     pub local_pubkey: Vec<u8>,
     pub local_seckey: Vec<u8>,
@@ -30,8 +23,7 @@ pub struct HandshakeResult {
     pub split_tx: [u8; CIPHER_KEY_LENGTH],
     pub split_rx: [u8; CIPHER_KEY_LENGTH],
 }
-
-impl HandshakeResult {
+impl Outcome {
     pub fn capability(&self, key: &[u8]) -> Vec<u8> {
         let mut context = Blake2b::with_key(32, &self.split_rx[..32]);
         context.update(CAP_NS_BUF);
@@ -56,27 +48,18 @@ impl HandshakeResult {
             if capability == expected_capability {
                 Ok(())
             } else {
-                Err(Error::new(
-                    ErrorKind::PermissionDenied,
-                    "Invalid remote channel capability",
-                ))
+                bail!("Invalid remote channel capability");
             }
         } else {
-            Err(Error::new(
-                ErrorKind::PermissionDenied,
-                "Missing capabilities for verification",
-            ))
+            bail!("Missing capability for verification");
         }
     }
 }
 
-pub fn build_handshake_state(
-    is_initiator: bool,
-) -> std::result::Result<(HandshakeState, Keypair), SnowError> {
+pub fn build_handshake_state(is_initiator: bool) -> Result<(HandshakeState, Keypair)> {
     let builder: Builder<'_> = Builder::new(HANDSHAKE_PATTERN.parse()?);
-    let key_pair = builder.generate_keypair().unwrap();
+    let key_pair = builder.generate_keypair()?;
     let builder = builder.local_private_key(&key_pair.private);
-    // log::trace!("hs local pubkey: {:x?}", &key_pair.public);
     let handshake_state = if is_initiator {
         builder.build_initiator()?
     } else {
@@ -87,7 +70,7 @@ pub fn build_handshake_state(
 
 #[derive(Debug)]
 pub struct Handshake {
-    result: HandshakeResult,
+    outcome: Outcome,
     state: HandshakeState,
     payload: Vec<u8>,
     tx_buf: Vec<u8>,
@@ -95,26 +78,23 @@ pub struct Handshake {
     complete: bool,
     did_receive: bool,
 }
-
 impl Handshake {
     pub fn new(is_initiator: bool) -> Result<Self> {
-        let (state, local_keypair) =
-            build_handshake_state(is_initiator).map_err(|e| wrap_error(&e))?;
+        let (state, local_keypair) = build_handshake_state(is_initiator)?;
 
         let local_nonce = generate_nonce()?;
         let payload = encode_nonce(local_nonce.clone());
 
-        let result = HandshakeResult {
+        let outcome = Outcome {
             is_initiator,
             local_pubkey: local_keypair.public,
             local_seckey: local_keypair.private,
-            // local_keypair,
             local_nonce,
             ..Default::default()
         };
         Ok(Self {
             state,
-            result,
+            outcome,
             payload,
             tx_buf: vec![0u8; 512],
             rx_buf: vec![0u8; 512],
@@ -140,26 +120,24 @@ impl Handshake {
 
     #[inline]
     pub fn is_initiator(&self) -> bool {
-        self.result.is_initiator
+        self.outcome.is_initiator
     }
 
     #[inline]
     fn recv(&mut self, msg: &[u8]) -> Result<usize> {
         self.state
             .read_message(msg, &mut self.rx_buf)
-            .map_err(|e| wrap_error(&e))
+            .map_err(|e| anyhow!(e))
     }
     #[inline]
     fn send(&mut self) -> Result<usize> {
         self.state
             .write_message(&self.payload, &mut self.tx_buf)
-            .map_err(|e| wrap_error(&e))
+            .map_err(|e| anyhow!(e))
     }
 
     pub fn read(&mut self, msg: &[u8]) -> Result<Option<&'_ [u8]>> {
-        if self.is_complete() {
-            return Err(Error::new(ErrorKind::Other, "Handshake read after finish"));
-        }
+        ensure!(!self.is_complete(), "handshake read after complete");
 
         let rx_len = self.recv(msg)?;
 
@@ -178,26 +156,23 @@ impl Handshake {
 
         let split = self.state.dangerously_get_raw_split();
         if self.is_initiator() {
-            self.result.split_tx = split.0;
-            self.result.split_rx = split.1;
+            self.outcome.split_tx = split.0;
+            self.outcome.split_rx = split.1;
         } else {
-            self.result.split_tx = split.1;
-            self.result.split_rx = split.0;
+            self.outcome.split_tx = split.1;
+            self.outcome.split_rx = split.0;
         }
-        self.result.remote_nonce = decode_nonce(&self.rx_buf[..rx_len])?;
-        self.result.remote_pubkey = self.state.get_remote_static().unwrap().to_vec();
+        self.outcome.remote_nonce = decode_nonce(&self.rx_buf[..rx_len])?;
+        self.outcome.remote_pubkey = self.state.get_remote_static().unwrap().to_vec();
         self.complete = true;
 
         Ok(tx_buf)
     }
 
     #[inline]
-    pub fn into_result(self) -> Result<HandshakeResult> {
-        if self.is_complete() {
-            Ok(self.result)
-        } else {
-            Err(Error::new(ErrorKind::Other, "Handshake is not complete"))
-        }
+    pub fn into_result(self) -> Result<Outcome> {
+        ensure!(self.is_complete(), "hanshake is not complete");
+        Ok(self.outcome)
     }
 }
 
@@ -207,15 +182,13 @@ fn generate_nonce() -> Result<Vec<u8>> {
     getrandom(&mut bytes)?;
     Ok(bytes.to_vec())
 }
-
 #[inline]
 fn encode_nonce(nonce: Vec<u8>) -> Vec<u8> {
     let nonce_msg = NoisePayload { nonce };
-    let mut buf = vec![0u8; 0];
+    let mut buf = Vec::with_capacity(CIPHER_KEY_LENGTH);
     nonce_msg.encode(&mut buf).unwrap();
     buf
 }
-
 #[inline]
 fn decode_nonce(msg: &[u8]) -> Result<Vec<u8>> {
     let decoded = NoisePayload::decode(msg)?;

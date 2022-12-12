@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -24,7 +24,7 @@ macro_rules! return_error {
 pub enum Event {
     /// Emitted after the handshake with the remote peer is complete.
     /// This is the first event (if the handshake is not disabled).
-    Handshake(noise::HandshakeResult),
+    Handshake(noise::Outcome),
 }
 
 /// Handshake stage of [Protocol], contains stage-specific fields.
@@ -51,8 +51,13 @@ where
     /// Wait for handshake and upgrade to [Protocol<IO>].
     pub async fn handshake(mut self) -> Result<Protocol<T, main::Stage>> {
         let handshake_result = if self.io.noise_enabled() {
-            let Event::Handshake(handshake) = self.next().await.unwrap()?;
-            Some(handshake)
+            match self.next().await {
+                None => bail!("stream ended before handshake"),
+                Some(event) => {
+                    let Event::Handshake(handshake) = event?;
+                    Some(handshake)
+                },
+            }
         } else {
             None
         };
@@ -99,7 +104,7 @@ where
         }
     }
 
-    fn check_handshake_complete(&mut self) -> Option<Result<noise::HandshakeResult>> {
+    fn check_handshake_complete(&mut self) -> Option<Result<noise::Outcome>> {
         let handshake = match self.state.handshake.take() {
             Some(handshake) => handshake,
             None => return None,

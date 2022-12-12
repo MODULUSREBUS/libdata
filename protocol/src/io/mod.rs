@@ -9,7 +9,7 @@ use self::reader::ReadState;
 use self::writer::WriteState;
 use crate::message::{Frame, FrameType};
 use crate::Options;
-use crate::noise::HandshakeResult;
+use crate::noise::Outcome;
 
 #[derive(Debug)]
 pub struct IO<T> {
@@ -51,9 +51,9 @@ where
 
     /// Upgrade with [HandshakeResult].
     #[inline]
-    pub fn upgrade_with_handshake(&mut self, result: &Option<HandshakeResult>) {
+    pub fn upgrade_with_handshake(&mut self, outcome: &Option<Outcome>) {
         if self.options.encrypted {
-            if let Some(handshake) = &result {
+            if let Some(handshake) = &outcome {
                 self.reader.upgrade_with_handshake(handshake);
                 self.writer.upgrade_with_handshake(handshake);
             }

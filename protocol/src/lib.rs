@@ -25,7 +25,7 @@ pub mod schema {
 
 /// Maximum size of a `Message`.
 // 4MB is the max wire message size (will be much smaller usually).
-pub const MAX_MESSAGE_SIZE: u64 = 1024 * 1024 * 4;
+pub const MAX_MESSAGE_SIZE: usize = 1024 * 1024 * 4;
 
 /// Public key (32 bytes).
 pub type Key = [u8; 32];

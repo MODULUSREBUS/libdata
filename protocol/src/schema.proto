@@ -9,7 +9,7 @@ message NoisePayload {
   required bytes nonce = 1;
 }
 
-// type=0
+// kind=0
 message Open {
   // [crate::DiscoveryKey]
   required bytes discoveryKey = 1;
@@ -17,19 +17,19 @@ message Open {
   optional bytes capability = 2;
 }
 
-// type=1, explicitly close a channel
+// kind=1, explicitly close a channel
 message Close {
   // [crate::DiscoveryKey]
   required bytes discoveryKey = 1;
 }
 
-// type=2, ask for data
+// kind=2, ask for data
 message Request {
   // index
   required uint32 index = 1;
 }
 
-// type=3, send some data
+// kind=3, send some data
 message Data {
   // index
   required uint32 index = 1;

@@ -1,12 +1,12 @@
+use anyhow::Result;
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::io::Result;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::AsyncWrite;
 
-use crate::message::{EncodeError, Encoder, Frame};
-use crate::noise::{Cipher, HandshakeResult};
+use crate::message::{Encoder, Frame};
+use crate::noise::{Cipher, Outcome};
 
 const BUF_SIZE: usize = 1024 * 64;
 
@@ -42,7 +42,7 @@ impl Default for WriteState {
 }
 impl WriteState {
     #[inline]
-    pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) {
+    pub fn upgrade_with_handshake(&mut self, handshake: &Outcome) {
         self.cipher = Some(Cipher::from_handshake_tx(handshake));
     }
 
@@ -52,10 +52,7 @@ impl WriteState {
     }
 
     #[inline]
-    fn try_queue_direct<T: Encoder>(
-        &mut self,
-        frame: &T,
-    ) -> std::result::Result<bool, EncodeError> {
+    fn try_queue_direct<T: Encoder>(&mut self, frame: &T) -> Result<bool> {
         let len = frame.encoded_len();
         if self.buf.len() < len {
             self.buf.resize(len, 0u8);

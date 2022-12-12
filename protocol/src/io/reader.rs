@@ -1,15 +1,14 @@
+use anyhow::{anyhow, Result};
 use futures_timer::Delay;
 use std::future::Future;
-use std::io::{Error, ErrorKind, Result};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::io::{AsyncRead, ReadBuf};
 
 use crate::message::{Frame, FrameType};
-use crate::noise::{Cipher, HandshakeResult};
-
-const MAX_MESSAGE_SIZE: usize = crate::MAX_MESSAGE_SIZE as usize;
+use crate::noise::{Cipher, Outcome};
+use crate::MAX_MESSAGE_SIZE;
 
 #[derive(Debug)]
 enum Step {
@@ -51,7 +50,7 @@ impl ReadState {
     }
 
     #[inline]
-    pub fn upgrade_with_handshake(&mut self, handshake: &HandshakeResult) {
+    pub fn upgrade_with_handshake(&mut self, handshake: &Outcome) {
         let mut cipher = Cipher::from_handshake_rx(handshake);
         cipher.apply(&mut self.buf[..self.end]);
         self.cipher = Some(cipher);
@@ -71,15 +70,17 @@ impl ReadState {
         R: AsyncRead + Unpin,
     {
         loop {
-            if let Some(result) = self.process() {
-                return Poll::Ready(result);
+            match self.process() {
+                Err(e) => return Poll::Ready(Err(e)),
+                Ok(Some(result)) => return Poll::Ready(Ok(result)),
+                Ok(None) => (),
             }
 
             let mut buf = ReadBuf::new(&mut self.buf[self.end..]);
             let n0 = buf.filled().len();
             let n = match Pin::new(&mut reader).poll_read(cx, &mut buf) {
                 Poll::Ready(Ok(())) if (buf.filled().len() - n0) > 0 => buf.filled().len() - n0,
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(anyhow!(e))),
                 // If the reader is pending, poll the timeout.
                 Poll::Pending | Poll::Ready(Ok(_)) => {
                     // Return Pending if the timeout is pending, or an error if the
@@ -88,10 +89,7 @@ impl ReadState {
                         None => Poll::Pending,
                         Some(mut timeout) => match Pin::new(&mut timeout).poll(cx) {
                             Poll::Pending => Poll::Pending,
-                            Poll::Ready(_) => Poll::Ready(Err(Error::new(
-                                ErrorKind::TimedOut,
-                                "Remote timed out",
-                            ))),
+                            Poll::Ready(_) => Poll::Ready(Err(anyhow!("remote timed out"))),
                         },
                     };
                 }
@@ -112,24 +110,24 @@ impl ReadState {
     }
 
     #[inline]
-    fn process(&mut self) -> Option<Result<Frame>> {
+    fn process(&mut self) -> Result<Option<Frame>> {
         if self.end == 0 {
-            return None;
+            return Ok(None);
         }
 
         loop {
             match self.step {
                 Step::Header => {
-                    let mut body_len = 0;
-                    let header_len = varinteger::decode(&self.buf[..self.end], &mut body_len);
-                    let body_len = body_len as usize;
+                    let header_len = Frame::header_len();
+                    let body_len = match Frame::decode_header(&self.buf[..self.end]) {
+                        Ok(Some(body_len)) => body_len,
+                        Ok(None) => return Ok(None),
+                        Err(e) => return Err(e),
+                    };
                     let message_len = header_len + body_len;
 
                     if message_len > MAX_MESSAGE_SIZE {
-                        return Some(Err(Error::new(
-                            ErrorKind::InvalidData,
-                            "Message length above max allowed size",
-                        )));
+                        return Err(anyhow!("message length above max length"));
                     }
                     self.step = Step::Body {
                         header_len,
@@ -141,18 +139,17 @@ impl ReadState {
                     body_len,
                 } => {
                     let message_len = header_len + body_len;
-
                     if self.end < message_len {
-                        return None;
+                        return Ok(None);
                     }
 
-                    let frame = Frame::decode(&self.buf[header_len..message_len], &self.frame_type);
+                    let frame = Frame::decode_body(&self.buf[header_len..message_len], &self.frame_type)?;
                     if self.end > message_len {
                         self.buf.copy_within(message_len..self.end, 0);
                     }
                     self.end -= message_len;
                     self.step = Step::Header;
-                    return Some(frame);
+                    return Ok(Some(frame));
                 }
             }
         }

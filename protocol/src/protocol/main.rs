@@ -10,7 +10,7 @@ use tokio_stream::Stream;
 
 use crate::channels::{ChannelHandle, ChannelMap};
 use crate::io::IO;
-use crate::message::{ChannelMessage, Frame};
+use crate::message::{Packet, Frame};
 use crate::schema::{Close, Data, Open, Request};
 use crate::{noise, DiscoveryKey, Key, Message};
 
@@ -51,10 +51,10 @@ pub enum Event {
 /// Main stage of [Protocol], contains stage-specific fields.
 #[derive(Debug)]
 pub struct Stage {
-    handshake: Option<noise::HandshakeResult>,
+    handshake: Option<noise::Outcome>,
     channels: ChannelMap,
-    outbound_rx: mpsc::UnboundedReceiver<ChannelMessage>,
-    outbound_tx: mpsc::UnboundedSender<ChannelMessage>,
+    outbound_rx: mpsc::UnboundedReceiver<Packet>,
+    outbound_tx: mpsc::UnboundedSender<Packet>,
     queued_events: VecDeque<Event>,
 }
 impl super::Stage for Stage {}
@@ -64,7 +64,7 @@ where
     T: AsyncWrite + AsyncRead + Send + Unpin + 'static,
 {
     /// Create a new [Protocol] after completing the handshake.
-    pub fn new(io: IO<T>, result: Option<noise::HandshakeResult>) -> Self {
+    pub fn new(io: IO<T>, result: Option<noise::Outcome>) -> Self {
         // setup channels
         let (outbound_tx, outbound_rx) = mpsc::unbounded_channel();
 
@@ -83,7 +83,7 @@ where
     /// Open a new protocol channel.
     pub fn open(&mut self, key: Key) -> Result<()> {
         // Create a new channel.
-        let channel_handle = self.state.channels.attach_local(key);
+        let channel_handle = self.state.channels.attach_local(key)?;
         // Safe because attach_local always puts Some(local_id)
         let local_id = channel_handle
             .local_id()
@@ -104,7 +104,7 @@ where
             discovery_key: discovery_key.to_vec(),
             capability,
         });
-        let channel_message = ChannelMessage::new(local_id as u64, message);
+        let channel_message = Packet::new(local_id as u32, message);
         self.io.queue_frame(Frame::Message(channel_message));
         Ok(())
     }
@@ -125,9 +125,14 @@ where
             None => Ok(()),
             Some(channel) => {
                 if channel.is_connected() {
-                    let local_id = channel.local_id().unwrap();
-                    let msg = ChannelMessage::new(local_id as u64, msg);
-                    self.state.outbound_tx.send(msg).map_err(|e| map_channel_err(&e))?;
+                    let local_id = channel
+                        .local_id()
+                        .ok_or_else(|| anyhow!("no local id for channel"))?;
+                    let msg = Packet::new(local_id, msg);
+                    self.state
+                        .outbound_tx
+                        .send(msg)
+                        .map_err(|e| map_channel_err(&e))?;
                 }
                 Ok(())
             }
@@ -173,18 +178,14 @@ where
         }
     }
 
-    fn on_outbound_message(&mut self, message: &ChannelMessage) {
+    fn on_outbound_message(&mut self, message: &Packet) {
         // If message is close, close the local channel.
-        if let ChannelMessage {
-            channel,
-            message: Message::Close(_),
-        } = message
-        {
-            self.close_local(*channel);
+        if let Message::Close(_) = message.message() {
+            self.close_local(message.channel() as usize);
         }
     }
 
-    fn on_inbound_message(&mut self, channel_message: ChannelMessage) -> Result<()> {
+    fn on_inbound_message(&mut self, channel_message: Packet) -> Result<()> {
         let (remote_id, message) = channel_message.into_split();
         match remote_id {
             // Id 0 means stream-level
@@ -192,7 +193,7 @@ where
             // Any other Id is a regular channel message.
             _ => match message {
                 Message::Open(msg) => self.on_open(remote_id, msg)?,
-                Message::Close(msg) => self.on_close(remote_id, &msg),
+                Message::Close(msg) => self.on_close(remote_id as usize, &msg),
                 _ => {
                     // Emit [Event::Message].
                     let discovery_key = self
@@ -209,12 +210,12 @@ where
         Ok(())
     }
 
-    fn on_open(&mut self, ch: u64, msg: Open) -> Result<()> {
+    fn on_open(&mut self, channel_id: u32, msg: Open) -> Result<()> {
         let discovery_key: DiscoveryKey = parse_key(&msg.discovery_key)?;
         let channel_handle =
             self.state
                 .channels
-                .attach_remote(discovery_key, ch as usize, msg.capability);
+                .attach_remote(discovery_key, channel_id, msg.capability)?;
 
         if channel_handle.is_connected() {
             let local_id = channel_handle.local_id().unwrap();
@@ -228,8 +229,8 @@ where
         Ok(())
     }
 
-    fn close_local(&mut self, local_id: u64) {
-        let channel = self.state.channels.get_local(local_id as usize);
+    fn close_local(&mut self, local_id: usize) {
+        let channel = self.state.channels.get_local(local_id);
         if let Some(channel) = channel {
             let discovery_key = *channel.discovery_key();
             self.state.channels.remove(&discovery_key);
@@ -237,8 +238,8 @@ where
         }
     }
 
-    fn on_close(&mut self, remote_id: u64, msg: &Close) {
-        let remote = self.state.channels.get_remote(remote_id as usize);
+    fn on_close(&mut self, remote_id: usize, msg: &Close) {
+        let remote = self.state.channels.get_remote(remote_id);
         if let Some(channel_handle) = remote {
             let discovery_key = *channel_handle.discovery_key();
             if msg.discovery_key == discovery_key {
