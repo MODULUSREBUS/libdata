@@ -2,21 +2,12 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use tokio::runtime::Runtime;
 
 use datacore::{generate_keypair, Core};
-use random_access_memory::RandomAccessMemory;
+use index_access_memory::IndexAccessMemory;
 
-type HomogenousCore<T> = Core<T, T, T>;
-type MemoryCore = HomogenousCore<RandomAccessMemory>;
-
-fn random_access_memory() -> RandomAccessMemory {
-    RandomAccessMemory::new(1024)
-}
-
-async fn init() -> MemoryCore {
+async fn init() -> Core<IndexAccessMemory> {
     let keypair = generate_keypair();
     Core::new(
-        random_access_memory(),
-        random_access_memory(),
-        random_access_memory(),
+        IndexAccessMemory::default(),
         keypair.public,
         Some(keypair.secret),
     )
@@ -24,14 +15,14 @@ async fn init() -> MemoryCore {
     .unwrap()
 }
 
-async fn hypercore_append(mut core: MemoryCore, blocks: u64) {
-    for i in 0..blocks {
-        core.append(&i.to_be_bytes(), None).await.unwrap();
+async fn hypercore_append(mut core: Core<IndexAccessMemory>, blocks: u32) {
+    for _ in 0..blocks {
+        core.append(b"hello world", None).await.unwrap();
     }
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("append 1000 blocks", |b| {
+    c.bench_function("append 1K blocks", |b| {
         let rt = Runtime::new().unwrap();
         b.to_async(rt).iter(|| async {
             let core = init().await;
