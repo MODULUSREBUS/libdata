@@ -1,7 +1,7 @@
 use insta;
 use quickcheck::{quickcheck, TestResult};
 
-use libdata::{keypair, SecretKey};
+use libdata::{key, keypair};
 
 #[test]
 fn key_can_generate() {
@@ -57,21 +57,21 @@ fn key_secret_key_bytes_have_not_changed() {
 
 #[test]
 fn key_snapshot_1() {
-    let main = SecretKey::from_bytes(&SECRET_KEY_BYTES).unwrap();
+    let main = key::Secret::from_bytes(&SECRET_KEY_BYTES).unwrap();
     let keypair = keypair::derive(&main, "hello");
     insta::assert_debug_snapshot!(keypair.to_bytes());
 }
 
 #[test]
 fn key_snapshot_2() {
-    let main = SecretKey::from_bytes(&SECRET_KEY_BYTES).unwrap();
+    let main = key::Secret::from_bytes(&SECRET_KEY_BYTES).unwrap();
     let keypair = keypair::derive(&main, "hello2");
     insta::assert_debug_snapshot!(keypair.to_bytes());
 }
 
 #[test]
 fn key_snapshot_3() {
-    let main = SecretKey::from_bytes(&SECRET_KEY_BYTES).unwrap();
+    let main = key::Secret::from_bytes(&SECRET_KEY_BYTES).unwrap();
     let keypair = keypair::derive(
         &main,
         "a very long string as a key name should not break the key derive, \

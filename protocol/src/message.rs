@@ -284,11 +284,11 @@ mod tests {
                 getrandom(&mut channel)
                     .expect("Could not getrandom");
                 let channel = u32::from(channel[0]);
-                let channel_message = ChannelMessage::new(channel, $msg);
+                let channel_message = Packet::new(channel, $msg);
                 let mut buf = vec![0u8; channel_message.encoded_len()];
                 let n = channel_message.encode(&mut buf[..])
                     .expect("Failed to encode message");
-                let decoded = ChannelMessage::decode(&buf[..n])
+                let decoded = Packet::decode(&buf[..n])
                     .expect("Failed to decode message")
                     .into_split();
                 assert_eq!(channel, decoded.0);

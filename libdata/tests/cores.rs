@@ -33,8 +33,8 @@ async fn cores_insert_get() -> Result<()> {
         .get_by_discovery(&key::discovery(&b.public_key().to_bytes()))
         .is_none());
 
-    assert_eq!(cores.public_keys().len(), 1);
-    assert_eq!(cores.discovery_keys().len(), 1);
+    assert_eq!(cores.public_keys().count(), 1);
+    assert_eq!(cores.discovery_keys().count(), 1);
 
     Ok(())
 }
@@ -60,8 +60,8 @@ async fn cores_insert_2() -> Result<()> {
         .get_by_discovery(&key::discovery(&b_public.to_bytes()))
         .is_some());
 
-    assert_eq!(cores.public_keys().len(), 2);
-    assert_eq!(cores.discovery_keys().len(), 2);
+    assert_eq!(cores.public_keys().count(), 2);
+    assert_eq!(cores.discovery_keys().count(), 2);
 
     Ok(())
 }

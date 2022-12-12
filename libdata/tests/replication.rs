@@ -9,7 +9,7 @@ use tokio::{task, test, time};
 
 use index_access_memory::IndexAccessMemory;
 use libdata::replication::{CoreReplica, Duplex, Handle, Link, Options};
-use libdata::{keypair, Core, PublicKey};
+use libdata::{key, keypair, Core};
 
 async fn new_core() -> Result<Core<IndexAccessMemory>> {
     let keypair = keypair::generate();
@@ -20,7 +20,7 @@ async fn new_core() -> Result<Core<IndexAccessMemory>> {
     )
     .await
 }
-async fn new_replica(key: PublicKey) -> Result<Core<IndexAccessMemory>> {
+async fn new_replica(key: key::Public) -> Result<Core<IndexAccessMemory>> {
     Core::new(IndexAccessMemory::default(), key, None).await
 }
 
