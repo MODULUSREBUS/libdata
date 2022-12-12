@@ -21,6 +21,4 @@ pub use datacore::{Core, IndexAccess, Signature, MAX_CORE_LENGTH};
 
 pub use cores::Cores;
 pub use iter::CoreIterator;
-pub use key::{DiscoveryKey, PublicKey, SecretKey};
 pub use keypair::Keypair;
-

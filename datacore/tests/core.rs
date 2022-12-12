@@ -155,14 +155,8 @@ async fn core_disk_append() {
     core.append(b"this is datacore", None).await.unwrap();
 
     assert_eq!(core.len(), 2);
-    assert_eq!(
-        core.get(0).await.unwrap().unwrap().0,
-        b"hello world",
-    );
-    assert_eq!(
-        core.get(1).await.unwrap().unwrap().0,
-        b"this is datacore",
-    );
+    assert_eq!(core.get(0).await.unwrap().unwrap().0, b"hello world",);
+    assert_eq!(core.get(1).await.unwrap().unwrap().0, b"this is datacore",);
 }
 
 #[tokio::test]

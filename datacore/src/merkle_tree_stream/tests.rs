@@ -23,7 +23,6 @@ impl H {
     }
 }
 
-
 #[test]
 fn mts_one_node() {
     let roots = Vec::new();
@@ -195,7 +194,6 @@ impl XorHashMethods {
         vec![hash]
     }
 }
-
 
 #[test]
 fn xor_hash_example() {

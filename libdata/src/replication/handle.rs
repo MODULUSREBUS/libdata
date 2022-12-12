@@ -3,16 +3,16 @@ use std::fmt::Debug;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::replication::ReplicaTrait;
-use crate::{key, DiscoveryKey, PublicKey};
+use crate::key;
 
 /// [Link] command.
 pub enum Command {
     /// Open a new replica.
-    Open(PublicKey, Box<dyn ReplicaTrait + Send>),
+    Open(key::Public, Box<dyn ReplicaTrait + Send>),
     /// Re-open a replica.
-    ReOpen(DiscoveryKey),
+    ReOpen(key::Discovery),
     /// Close a replica.
-    Close(DiscoveryKey),
+    Close(key::Discovery),
     /// End the [Link].
     Quit(),
 }
@@ -40,17 +40,17 @@ impl Handle {
     }
 
     /// Open a new channel with [ReplicaTrait].
-    pub fn open(&mut self, key: &PublicKey, replica: Box<dyn ReplicaTrait + Send>) -> Result<()> {
+    pub fn open(&mut self, key: &key::Public, replica: Box<dyn ReplicaTrait + Send>) -> Result<()> {
         self.send(Command::Open(*key, replica))
     }
 
     /// Reopen a replica.
-    pub fn reopen(&mut self, key: &PublicKey) -> Result<()> {
+    pub fn reopen(&mut self, key: &key::Public) -> Result<()> {
         self.send(Command::ReOpen(key::discovery(key.as_bytes())))
     }
 
-    /// Close a channel by [DiscoveryKey].
-    pub fn close(&mut self, key: DiscoveryKey) -> Result<()> {
+    /// Close a channel by [key::Discovery].
+    pub fn close(&mut self, key: key::Discovery) -> Result<()> {
         self.send(Command::Close(key))
     }
 

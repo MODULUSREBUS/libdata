@@ -10,7 +10,7 @@ use tokio_stream::{Stream, StreamExt};
 use crate::replication::{
     Command, Data, DataOrRequest, Options, ReplicaTrait, Handle, Request,
 };
-use crate::{key, DiscoveryKey};
+use crate::key;
 use protocol::main::{Event as ProtocolEvent, Stage};
 use protocol::{self, Message, Protocol};
 
@@ -30,7 +30,7 @@ where
 {
     protocol: Protocol<T, Stage>,
     command_rx: UnboundedReceiver<Command>,
-    replicas: HashMap<DiscoveryKey, Box<dyn ReplicaTrait + Send>>,
+    replicas: HashMap<key::Discovery, Box<dyn ReplicaTrait + Send>>,
 }
 impl<T: 'static> Link<T>
 where
@@ -74,7 +74,7 @@ where
     /// with an `on_discovery` hook: handle [ProtocolEvent::DiscoveryKey].
     pub async fn run_with_discovery_hook<F>(
         mut self,
-        on_discovery: impl Fn(DiscoveryKey) -> F + Copy,
+        on_discovery: impl Fn(key::Discovery) -> F + Copy,
     ) -> Result<()>
     where
         F: Future<Output = Result<()>>,
@@ -130,7 +130,7 @@ where
     async fn handle_event<F>(
         &mut self,
         event: Result<ProtocolEvent>,
-        on_discovery: impl FnOnce(DiscoveryKey) -> F,
+        on_discovery: impl FnOnce(key::Discovery) -> F,
     ) -> Result<bool>
     where
         F: Future<Output = Result<()>>,
@@ -176,7 +176,7 @@ where
         Ok(true)
     }
 
-    async fn replica_on_open(&mut self, key: &DiscoveryKey) -> Result<()> {
+    async fn replica_on_open(&mut self, key: &key::Discovery) -> Result<()> {
         if let Some(replica) = self.replicas.get_mut(key) {
             let request = replica.on_open().await?;
             if let Some(request) = request {
@@ -186,7 +186,7 @@ where
         Ok(())
     }
 
-    async fn replica_on_close(&mut self, key: &DiscoveryKey) -> Result<()> {
+    async fn replica_on_close(&mut self, key: &key::Discovery) -> Result<()> {
         if let Some(replica) = self.replicas.get_mut(key) {
             replica.on_close().await?;
         }
@@ -194,7 +194,7 @@ where
         Ok(())
     }
 
-    async fn replica_on_request(&mut self, key: &DiscoveryKey, request: Request) -> Result<()> {
+    async fn replica_on_request(&mut self, key: &key::Discovery, request: Request) -> Result<()> {
         if let Some(replica) = self.replicas.get_mut(key) {
             let msg = replica.on_request(request).await?;
             match msg {
@@ -206,7 +206,7 @@ where
         Ok(())
     }
 
-    async fn replica_on_data(&mut self, key: &DiscoveryKey, data: Data) -> Result<()> {
+    async fn replica_on_data(&mut self, key: &key::Discovery, data: Data) -> Result<()> {
         if let Some(replica) = self.replicas.get_mut(key) {
             let request = replica.on_data(data).await?;
             if let Some(request) = request {
