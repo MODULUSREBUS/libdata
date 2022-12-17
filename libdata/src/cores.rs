@@ -1,21 +1,28 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Weak};
+use multi_map::MultiMap;
+use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{key, Core, IndexAccess};
 
 type PublicKeyBytes = [u8; 32];
 
-#[derive(Default)]
 /// [Cores] is a container for storing and quickly accessing multiple [Core]s.
 ///
-/// Stored [Core]s can be accessed by [PublicKey] or [DiscoveryKey].
+/// Stored [Core]s can be accessed by [key::Public] or [key::Discovery].
 pub struct Cores<T> {
-    by_public: HashMap<PublicKeyBytes, Arc<Mutex<Core<T>>>>,
-    by_discovery: HashMap<key::Discovery, Weak<Mutex<Core<T>>>>,
+    length: usize,
+    map: MultiMap<key::Discovery, PublicKeyBytes, Arc<Mutex<Core<T>>>>,
+}
+impl<T> Default for Cores<T> {
+    fn default() -> Self {
+        Self {
+            length: 0,
+            map: MultiMap::default(),
+        }
+    }
 }
 impl<T: IndexAccess + Send> Cores<T> {
-    /// Insert a new [Core].
+    /// Insert a [Core].
     #[inline]
     pub fn insert(&mut self, core: Core<T>) {
         let public = *core.public_key();
@@ -28,57 +35,57 @@ impl<T: IndexAccess + Send> Cores<T> {
         let public = public.to_bytes();
         let discovery = key::discovery(&public);
 
-        self.by_discovery.insert(discovery, Arc::downgrade(&core));
-        self.by_public.insert(public, core);
+        self.map.insert(discovery, public, core);
+        self.length += 1;
     }
 
     /// Try getting a [Core] by [PublicKey].
     #[must_use]
     #[inline]
     pub fn get_by_public(&self, key: &key::Public) -> Option<Arc<Mutex<Core<T>>>> {
-        self.by_public.get(&key.to_bytes()).map(Arc::clone)
+        self.map.get_alt(&key.to_bytes()).map(Arc::clone)
     }
 
     /// Try getting a [Core] by [DiscoveryKey].
     #[must_use]
     #[inline]
     pub fn get_by_discovery(&self, key: &key::Discovery) -> Option<Arc<Mutex<Core<T>>>> {
-        self.by_discovery
-            .get(key)
-            .and_then(std::sync::Weak::upgrade)
+        self.map.get(key).map(Arc::clone)
     }
 
     /// Returns the number of contained [Core]s.
     #[must_use]
     #[inline]
     pub fn len(&self) -> usize {
-        self.by_public.len()
+        self.length
     }
 
     /// Checks if [Cores] is empty.
     #[must_use]
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.by_public.len() == 0
+        self.len() == 0
     }
 
     /// Get the [PublicKey]s of all stored [Core]s in an arbitrary order.
     #[inline]
     pub fn public_keys(&self) -> impl Iterator<Item = key::Public> + '_ {
-        self.by_public
-            .keys()
-            .map(|bytes| key::Public::from_bytes(bytes).unwrap())
+        self.map
+            .iter()
+            .map(|(_discovery, (public, _core))| key::Public::from_bytes(public).unwrap())
     }
     /// Get the [DiscoveryKey]s of all stored [Core]s in an arbitrary order.
     #[inline]
     pub fn discovery_keys(&self) -> impl Iterator<Item = key::Discovery> + '_ {
-        self.by_public.keys().map(key::discovery)
+        self.map
+            .iter()
+            .map(|(discovery, (_public, _core))| discovery.clone())
     }
     /// Access the contained [Core]s.
     #[inline]
     pub fn entries(&self) -> impl Iterator<Item = (key::Public, Arc<Mutex<Core<T>>>)> + '_ {
-        self.by_public
-            .iter()
-            .map(|(bytes, core)| (key::Public::from_bytes(bytes).unwrap(), Arc::clone(core)))
+        self.map.iter().map(|(_discovery, (public, core))| {
+            (key::Public::from_bytes(public).unwrap(), Arc::clone(core))
+        })
     }
 }

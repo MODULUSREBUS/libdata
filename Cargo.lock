@@ -974,6 +974,7 @@ dependencies = [
  "hex 0.4.3",
  "index-access-memory",
  "insta",
+ "multi-map",
  "protocol",
  "quickcheck",
  "rand_chacha",
@@ -1033,6 +1034,12 @@ dependencies = [
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys",
 ]
+
+[[package]]
+name = "multi-map"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bba551d6d795f74a01767577ea8339560bf0a65354e0417b7e915ed608443d46"
 
 [[package]]
 name = "multimap"
