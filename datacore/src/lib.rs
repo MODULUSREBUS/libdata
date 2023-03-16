@@ -37,6 +37,7 @@
 
 mod block;
 mod core;
+mod core_trait;
 mod hash;
 mod keys;
 mod merkle;
@@ -47,6 +48,7 @@ pub use ed25519_dalek;
 pub use index_access_storage::IndexAccess;
 
 pub use self::core::{Core, MAX_BLOCK_SIZE, MAX_CORE_LENGTH};
+pub use core_trait::CoreTrait;
 pub use block::{Block, Signature, SIGNATURE_LENGTH};
 pub use hash::Hash;
 pub use keys::{generate_keypair, sign, verify, Keypair, PublicKey, SecretKey};

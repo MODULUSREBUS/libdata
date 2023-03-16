@@ -2,11 +2,13 @@
 //! Exposes an append-only, single-writer, secure log structure.
 
 use anyhow::{bail, ensure, Result};
+use async_trait::async_trait;
 
 use crate::merkle::Merkle;
 use crate::merkle_tree_stream::Node;
 use crate::store::Store;
 use crate::{sign, verify, Block, Hash, IndexAccess, PublicKey, SecretKey, Signature};
+use crate::CoreTrait;
 
 /// Maximum number of blocks of data in a `Core`.
 pub const MAX_CORE_LENGTH: usize = (u32::MAX - 1) as usize;
@@ -22,7 +24,7 @@ pub const MAX_BLOCK_SIZE: usize = u32::MAX as usize;
 /// If 2 separate clients write conflicting information to the same `Core`
 /// it will become corrupted.
 ///
-/// The feed needs an implementation of [RandomAccess] as a storage backing
+/// [Core] needs an implementation of [IndexAccess] as a storage backing
 /// for the entries added to it.
 ///
 /// [SecretKey]: ed25519_dalek::SecretKey
@@ -38,24 +40,61 @@ pub struct Core<T> {
     length: u32,
     byte_length: u64,
 }
-impl<T> Core<T> {
-    /// Get the number of entries in the `Core`.
+#[async_trait]
+impl<T> CoreTrait for Core<T>
+where
+    T: IndexAccess + Send,
+    <T as IndexAccess>::Error: Into<anyhow::Error>,
+{
+    async fn append(&mut self, data: &[u8], signature: Option<Signature>) -> Result<()> {
+        let index = self.len();
+        let data_length = data.len();
+        ensure!(data_length <= MAX_BLOCK_SIZE);
+        let data_length = u32::try_from(data_length)?;
+
+        // get or try to create the `signature`
+        let signature = if let Some(signature) = signature {
+            let data_hash = Hash::from_leaf(data)?;
+            verify(&self.public_key, &data_hash, signature.data())?;
+            let mut merkle = self.merkle.clone();
+            merkle.next(data_hash, data_length);
+            verify(&self.public_key, &hash_merkle(&merkle), signature.tree())?;
+            self.merkle = merkle;
+            signature
+        } else {
+            let secret = match &self.secret_key {
+                Some(secret) => secret,
+                None => bail!("No SecretKey for Core, cannot append."),
+            };
+            let data_hash = Hash::from_leaf(data)?;
+            let data_sign = sign(&self.public_key, secret, &data_hash);
+            self.merkle.next(data_hash, data_length);
+            let tree_sign = sign(&self.public_key, secret, &hash_merkle(&self.merkle));
+            Signature::new(data_sign, tree_sign)
+        };
+
+        let block = Block::new(self.byte_length, data_length as u32, signature);
+
+        self.store.write(index, data, &block).await?;
+        self.store.write_merkle(&self.merkle).await?;
+        self.byte_length += u64::from(data_length);
+        self.length += 1;
+
+        Ok(())
+    }
+
     #[inline]
-    pub fn len(&self) -> u32 {
-        self.length
-    }
-    /// Check if the `Core` is empty.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-    /// Access the [PublicKey].
-    pub fn public_key(&self) -> &PublicKey {
-        &self.public_key
-    }
-    /// Access the optional [SecretKey].
-    pub fn secret_key(&self) -> &Option<SecretKey> {
-        &self.secret_key
+    async fn get(&mut self, index: u32) -> Result<Option<(Vec<u8>, Signature)>> {
+        ensure!((index as usize) < MAX_CORE_LENGTH);
+        let length = self.len();
+        if index >= length {
+            return Ok(None);
+        }
+        Ok(self
+            .store
+            .read(index)
+            .await?
+            .map(|(data, block)| (data, block.signature().clone())))
     }
 }
 impl<T> Core<T>
@@ -94,50 +133,7 @@ where
         })
     }
 
-    /// Append data into the `Core`.
-    ///
-    /// If `signature` is supplied, the caller is responsible for verifying its
-    /// integrity and consistency with the `data`.
-    #[inline]
-    pub async fn append(&mut self, data: &[u8], signature: Option<Signature>) -> Result<()> {
-        let index = self.len();
-        let data_length = data.len();
-        ensure!(data_length <= MAX_BLOCK_SIZE);
-        let data_length = u32::try_from(data_length)?;
-
-        // get or try to create the `signature`
-        let signature = if let Some(signature) = signature {
-            let data_hash = Hash::from_leaf(data)?;
-            verify(&self.public_key, &data_hash, signature.data())?;
-            let mut merkle = self.merkle.clone();
-            merkle.next(data_hash, data_length);
-            verify(&self.public_key, &hash_merkle(&merkle), signature.tree())?;
-            self.merkle = merkle;
-            signature
-        } else {
-            let secret = match &self.secret_key {
-                Some(secret) => secret,
-                None => bail!("No SecretKey for Core, cannot append."),
-            };
-            let data_hash = Hash::from_leaf(data)?;
-            let data_sign = sign(&self.public_key, secret, &data_hash);
-            self.merkle.next(data_hash, data_length);
-            let tree_sign = sign(&self.public_key, secret, &hash_merkle(&self.merkle));
-            Signature::new(data_sign, tree_sign)
-        };
-
-        let block = Block::new(self.byte_length, data_length as u32, signature);
-
-        self.store.write(index, data, &block).await?;
-        self.store.write_merkle(&self.merkle).await?;
-        self.byte_length += u64::from(data_length);
-        self.length += 1;
-
-        Ok(())
-    }
-
-    /// Get the block of data at the tip of the feed.
-    /// This will be the most recently appended block.
+    /// Get the block of data at the top of the [Core].
     #[inline]
     pub async fn head(&mut self) -> Result<Option<(Vec<u8>, Signature)>> {
         match self.len() {
@@ -145,19 +141,24 @@ where
             len => self.get(len - 1).await,
         }
     }
-    /// Retrieve data for a block at index.
+
+    /// Get the number of entries in the `Core`.
     #[inline]
-    pub async fn get(&mut self, index: u32) -> Result<Option<(Vec<u8>, Signature)>> {
-        ensure!((index as usize) < MAX_CORE_LENGTH);
-        let length = self.len();
-        if index >= length {
-            return Ok(None);
-        }
-        Ok(self
-            .store
-            .read(index)
-            .await?
-            .map(|(data, block)| (data, block.signature().clone())))
+    pub fn len(&self) -> u32 {
+        self.length
+    }
+    /// Check if the `Core` is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    /// Access the [PublicKey].
+    pub fn public_key(&self) -> &PublicKey {
+        &self.public_key
+    }
+    /// Access the optional [SecretKey].
+    pub fn secret_key(&self) -> &Option<SecretKey> {
+        &self.secret_key
     }
 }
 
