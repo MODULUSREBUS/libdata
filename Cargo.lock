@@ -132,6 +132,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "bip39-dict"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33b74d395d6b577a1e3c1348545cef70a418281c83abbe50f5662ae4d4abf6d8"
+dependencies = [
+ "cryptoxide",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -479,6 +488,12 @@ dependencies = [
  "openssl",
  "winapi",
 ]
+
+[[package]]
+name = "cryptoxide"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "382ce8820a5bb815055d3553a610e8cb542b2d767bbacea99038afda96cd760d"
 
 [[package]]
 name = "ctr"
@@ -968,9 +983,11 @@ dependencies = [
  "anyhow",
  "async-compat",
  "async-trait",
+ "bip39-dict",
  "blake3",
  "datacore",
  "futures-lite",
+ "getrandom 0.2.8",
  "hex 0.4.3",
  "index-access-memory",
  "insta",
