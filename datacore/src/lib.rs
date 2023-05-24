@@ -48,5 +48,5 @@ pub use index_access_storage::IndexAccess;
 pub use self::core::{Core, MAX_BLOCK_SIZE, MAX_CORE_LENGTH};
 pub use block::{Block, Signature, SIGNATURE_LENGTH};
 pub use hash::Hash;
-pub use keys::{sign, verify, KeyPair, PublicKey, SecretKey};
+pub use keys::{sign, verify, KeyPair, PublicKey, SecretKey, Seed};
 pub use merkle::{Merkle, Node, NodeTrait};

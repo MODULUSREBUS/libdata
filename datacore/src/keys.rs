@@ -3,7 +3,7 @@
 
 use anyhow::{ensure, Result};
 
-pub use ed25519_compact::{KeyPair, PublicKey, SecretKey, Signature};
+pub use ed25519_compact::{KeyPair, Seed, PublicKey, SecretKey, Signature};
 
 /// Sign a byte slice.
 #[must_use]

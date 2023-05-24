@@ -540,7 +540,6 @@ dependencies = [
  "insta",
  "quickcheck",
  "quickcheck_async",
- "rand_chacha",
  "tempfile",
  "tokio",
 ]
