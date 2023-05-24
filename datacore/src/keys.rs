@@ -2,26 +2,13 @@
 //! Uses `Ed25519` cryptography.
 
 use anyhow::{ensure, Result};
-use ed25519_dalek::{ExpandedSecretKey, Verifier};
-use getrandom::getrandom;
-use rand_chacha::rand_core::SeedableRng;
-use rand_chacha::ChaCha20Rng;
 
-pub use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature};
-
-/// Create a new [Keypair].
-#[must_use]
-pub fn generate_keypair() -> Keypair {
-    let mut seed: <ChaCha20Rng as SeedableRng>::Seed = Default::default();
-    getrandom(&mut seed).expect("Could not seed RNG");
-    let mut rng = ChaCha20Rng::from_seed(seed);
-    Keypair::generate(&mut rng)
-}
+pub use ed25519_compact::{KeyPair, PublicKey, SecretKey, Signature};
 
 /// Sign a byte slice.
 #[must_use]
-pub fn sign(public: &PublicKey, secret: &SecretKey, msg: &[u8]) -> Signature {
-    ExpandedSecretKey::from(secret).sign(msg, public)
+pub fn sign(secret: &SecretKey, msg: &[u8]) -> Signature {
+    secret.sign(msg, None)
 }
 
 /// Verify a signature of a byte slice.
@@ -36,10 +23,10 @@ mod tests {
 
     #[test]
     fn sign_verify() {
-        let keypair = generate_keypair();
+        let keypair = KeyPair::generate();
         let msg = b"hello";
-        let signature = sign(&keypair.public, &keypair.secret, msg);
-        assert!(verify(&keypair.public, msg, &signature).is_ok());
-        assert!(verify(&keypair.public, b"oops", &signature).is_err());
+        let signature = sign(&keypair.sk, msg);
+        assert!(verify(&keypair.pk, msg, &signature).is_ok());
+        assert!(verify(&keypair.pk, b"oops", &signature).is_err());
     }
 }

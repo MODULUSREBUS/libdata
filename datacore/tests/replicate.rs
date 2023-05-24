@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use datacore::{generate_keypair, sign, verify, Core, Hash, Keypair, Merkle, NodeTrait, Signature};
+use datacore::{sign, verify, Core, Hash, KeyPair, Merkle, NodeTrait, Signature};
 use index_access_fs::IndexAccessFs;
 
 fn read_bytes(dir: &Path, s: &str) -> Vec<u8> {
@@ -23,21 +23,22 @@ fn hash_tree(merkle: &Merkle) -> Hash {
 pub async fn replicate_manual() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
-    let keypair = generate_keypair();
-    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
-    let keypair3 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
+
+    let keypair = KeyPair::generate();
+    let keypair2 = keypair.clone();
+    let keypair3 = keypair.clone();
 
     let mut core = Core::new(
         IndexAccessFs::new(&dir).await.unwrap(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
     let mut replica = Core::new(
         IndexAccessFs::new(&dir2).await.unwrap(),
-        keypair2.public,
-        Some(keypair2.secret),
+        keypair2.pk,
+        Some(keypair2.sk),
     )
     .await
     .unwrap();
@@ -51,19 +52,19 @@ pub async fn replicate_manual() {
 
     let mut merkle = Merkle::default();
     let data_hash = Hash::from_leaf(data1).unwrap();
-    let data_sign = sign(&keypair3.public, &keypair3.secret, &data_hash);
+    let data_sign = sign(&keypair3.sk, &data_hash);
     merkle.next(data_hash.clone(), data1.len() as u32);
-    verify(&keypair3.public, &data_hash, &data_sign).unwrap();
+    verify(&keypair3.pk, &data_hash, &data_sign).unwrap();
     let tree_hash = hash_tree(&merkle);
-    let tree_sign = sign(&keypair3.public, &keypair3.secret, &tree_hash);
-    verify(&keypair3.public, &tree_hash, &tree_sign).unwrap();
+    let tree_sign = sign(&keypair3.sk, &tree_hash);
+    verify(&keypair3.pk, &tree_hash, &tree_sign).unwrap();
     let signature = Signature::new(data_sign, tree_sign);
     replica.append(data1, Some(signature)).await.unwrap();
     let data_hash = Hash::from_leaf(data2).unwrap();
     merkle.next(data_hash.clone(), data2.len() as u32);
     let signature = Signature::new(
-        sign(&keypair3.public, &keypair3.secret, &data_hash),
-        sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)),
+        sign(&keypair3.sk, &data_hash),
+        sign(&keypair3.sk, &hash_tree(&merkle)),
     );
     replica.append(data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
@@ -77,21 +78,21 @@ pub async fn replicate_manual() {
 pub async fn replicate_manual_no_secret_key() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
-    let keypair = generate_keypair();
-    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
-    let keypair3 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
+    let keypair = KeyPair::generate();
+    let keypair2 = KeyPair::from_slice(keypair.as_slice()).unwrap();
+    let keypair3 = KeyPair::from_slice(keypair.as_slice()).unwrap();
 
     let mut core = Core::new(
         IndexAccessFs::new(&dir).await.unwrap(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
     let mut replica = Core::new(
         IndexAccessFs::new(&dir2).await.unwrap(),
-        keypair2.public,
-        Some(keypair2.secret),
+        keypair2.pk,
+        Some(keypair2.sk),
     )
     .await
     .unwrap();
@@ -107,15 +108,15 @@ pub async fn replicate_manual_no_secret_key() {
     let data_hash = Hash::from_leaf(data1).unwrap();
     merkle.next(data_hash.clone(), data1.len() as u32);
     let signature = Signature::new(
-        sign(&keypair3.public, &keypair3.secret, &data_hash),
-        sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)),
+        sign(&keypair3.sk, &data_hash),
+        sign(&keypair3.sk, &hash_tree(&merkle)),
     );
     replica.append(data1, Some(signature)).await.unwrap();
     let data_hash = Hash::from_leaf(data2).unwrap();
     merkle.next(data_hash.clone(), data2.len() as u32);
     let signature = Signature::new(
-        sign(&keypair3.public, &keypair3.secret, &data_hash),
-        sign(&keypair3.public, &keypair3.secret, &hash_tree(&merkle)),
+        sign(&keypair3.sk, &data_hash),
+        sign(&keypair3.sk, &hash_tree(&merkle)),
     );
     replica.append(data2, Some(signature)).await.unwrap();
     assert_eq!(replica.len(), 2);
@@ -129,20 +130,20 @@ pub async fn replicate_manual_no_secret_key() {
 pub async fn replicate_signatures_no_secret_key() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
-    let keypair = generate_keypair();
-    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
+    let keypair = KeyPair::generate();
+    let keypair2 = keypair.clone();
 
     let mut core = Core::new(
         IndexAccessFs::new(&dir).await.unwrap(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
     let mut replica = Core::new(
         IndexAccessFs::new(&dir2).await.unwrap(),
-        keypair2.public,
-        Some(keypair2.secret),
+        keypair2.pk,
+        Some(keypair2.sk),
     )
     .await
     .unwrap();
@@ -169,20 +170,20 @@ pub async fn replicate_signatures_no_secret_key() {
 pub async fn replicate_then_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
-    let keypair = generate_keypair();
-    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
+    let keypair = KeyPair::generate();
+    let keypair2 = keypair.clone();
 
     let mut core = Core::new(
         IndexAccessFs::new(&dir).await.unwrap(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
     let mut replica = Core::new(
         IndexAccessFs::new(&dir2).await.unwrap(),
-        keypair2.public,
-        Some(keypair2.secret),
+        keypair2.pk,
+        Some(keypair2.sk),
     )
     .await
     .unwrap();
@@ -215,20 +216,20 @@ pub async fn replicate_then_append() {
 pub async fn replicate_fail_verify_then_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
     let dir2 = tempfile::tempdir().unwrap().into_path();
-    let keypair = generate_keypair();
-    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
+    let keypair = KeyPair::generate();
+    let keypair2 = keypair.clone();
 
     let mut core = Core::new(
         IndexAccessFs::new(&dir).await.unwrap(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
     let mut replica = Core::new(
         IndexAccessFs::new(&dir2).await.unwrap(),
-        keypair2.public,
-        Some(keypair2.secret),
+        keypair2.pk,
+        Some(keypair2.sk),
     )
     .await
     .unwrap();
@@ -247,14 +248,14 @@ pub async fn replicate_fail_verify_then_append() {
     let (data2, signature) = core.get(1).await.unwrap().unwrap();
     let invalid_signature_1 = Signature::new(
         *signature.data(),
-        ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::SIGNATURE_LENGTH]).unwrap(),
+        ed25519_compact::Signature::from_slice(&[0u8; ed25519_compact::Signature::BYTES]).unwrap(),
     );
     let invalid_signature_2 = Signature::new(
-        ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::SIGNATURE_LENGTH]).unwrap(),
-        ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::SIGNATURE_LENGTH]).unwrap(),
+        ed25519_compact::Signature::from_slice(&[0u8; ed25519_compact::Signature::BYTES]).unwrap(),
+        ed25519_compact::Signature::from_slice(&[0u8; ed25519_compact::Signature::BYTES]).unwrap(),
     );
     let invalid_signature_3 = Signature::new(
-        ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::SIGNATURE_LENGTH]).unwrap(),
+        ed25519_compact::Signature::from_slice(&[0u8; ed25519_compact::Signature::BYTES]).unwrap(),
         *signature.tree(),
     );
     assert!(replica

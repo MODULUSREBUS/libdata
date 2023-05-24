@@ -14,15 +14,15 @@
 //! # use futures_lite::future::FutureExt;
 //!
 //! use index_access_memory::IndexAccessMemory;
-//! use datacore::{Core, generate_keypair};
+//! use datacore::{Core, KeyPair};
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-//! let keypair = generate_keypair();
+//! let keypair = KeyPair::generate();
 //! let mut core = Core::new(
 //!     IndexAccessMemory::default(),
-//!     keypair.public,
-//!     Some(keypair.secret),
+//!     keypair.pk,
+//!     Some(keypair.sk),
 //!     ).await?;
 //!
 //! core.append(b"hello", None).await?;
@@ -43,11 +43,10 @@ mod merkle;
 mod merkle_tree_stream;
 mod store;
 
-pub use ed25519_dalek;
 pub use index_access_storage::IndexAccess;
 
 pub use self::core::{Core, MAX_BLOCK_SIZE, MAX_CORE_LENGTH};
 pub use block::{Block, Signature, SIGNATURE_LENGTH};
 pub use hash::Hash;
-pub use keys::{generate_keypair, sign, verify, Keypair, PublicKey, SecretKey};
+pub use keys::{sign, verify, KeyPair, PublicKey, SecretKey};
 pub use merkle::{Merkle, Node, NodeTrait};

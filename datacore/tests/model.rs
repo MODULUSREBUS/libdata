@@ -1,7 +1,7 @@
 use quickcheck::{Arbitrary, Gen};
 use quickcheck_async;
 
-use datacore::{generate_keypair, Core};
+use datacore::{KeyPair, Core};
 use index_access_memory::IndexAccessMemory;
 
 #[derive(Clone, Debug)]
@@ -35,11 +35,11 @@ impl Arbitrary for Op {
 
 #[quickcheck_async::tokio]
 async fn implementation_matches_model(ops: Vec<Op>) -> bool {
-    let keypair = generate_keypair();
+    let keypair = KeyPair::generate();
     let mut core = Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();

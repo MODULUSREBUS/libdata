@@ -120,9 +120,9 @@ where
                 None => bail!("No SecretKey for Core, cannot append."),
             };
             let data_hash = Hash::from_leaf(data)?;
-            let data_sign = sign(&self.public_key, secret, &data_hash);
+            let data_sign = sign(secret, &data_hash);
             self.merkle.next(data_hash, data_length);
-            let tree_sign = sign(&self.public_key, secret, &hash_merkle(&self.merkle));
+            let tree_sign = sign(secret, &hash_merkle(&self.merkle));
             Signature::new(data_sign, tree_sign)
         };
 

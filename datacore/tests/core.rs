@@ -1,14 +1,14 @@
-use datacore::{generate_keypair, sign, Core, Hash, Keypair, Merkle, NodeTrait, Signature};
+use datacore::{sign, Core, Hash, KeyPair, Merkle, NodeTrait, Signature};
 use index_access_fs::IndexAccessFs;
 use index_access_memory::IndexAccessMemory;
 
 #[tokio::test]
 async fn core_init() {
-    let keypair = generate_keypair();
+    let keypair = KeyPair::generate();
     let core = Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
@@ -18,11 +18,11 @@ async fn core_init() {
 
 #[tokio::test]
 async fn core_append() {
-    let keypair = generate_keypair();
+    let keypair = KeyPair::generate();
     let mut core = Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
@@ -48,12 +48,12 @@ async fn core_append() {
 
 #[tokio::test]
 async fn core_signatures() {
-    let keypair = generate_keypair();
-    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
+    let keypair = KeyPair::generate();
+    let keypair2 = keypair.clone();
     let mut core = Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
@@ -67,21 +67,13 @@ async fn core_signatures() {
     let mut merkle = Merkle::default();
     merkle.next(Hash::from_leaf(data1).unwrap(), data1.len() as u32);
     let signature1 = Signature::new(
-        sign(
-            &keypair2.public,
-            &keypair2.secret,
-            &Hash::from_leaf(data1).unwrap(),
-        ),
-        sign(&keypair2.public, &keypair2.secret, &hash_tree(&merkle)),
+        sign(&keypair2.sk, &Hash::from_leaf(data1).unwrap()),
+        sign(&keypair2.sk, &hash_tree(&merkle)),
     );
     merkle.next(Hash::from_leaf(data2).unwrap(), data2.len() as u32);
     let signature2 = Signature::new(
-        sign(
-            &keypair2.public,
-            &keypair2.secret,
-            &Hash::from_leaf(data2).unwrap(),
-        ),
-        sign(&keypair2.public, &keypair2.secret, &hash_tree(&merkle)),
+        sign(&keypair2.sk, &Hash::from_leaf(data2).unwrap()),
+        sign(&keypair2.sk, &hash_tree(&merkle)),
     );
 
     assert_eq!(core.len(), 2);
@@ -97,11 +89,11 @@ async fn core_signatures() {
 
 #[tokio::test]
 async fn core_get_head() {
-    let keypair = generate_keypair();
+    let keypair = KeyPair::generate();
     let mut core = Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
@@ -130,8 +122,8 @@ async fn core_get_head() {
 
 #[tokio::test]
 async fn core_append_no_secret_key() {
-    let keypair = generate_keypair();
-    let mut core = Core::new(IndexAccessMemory::default(), keypair.public, None)
+    let keypair = KeyPair::generate();
+    let mut core = Core::new(IndexAccessMemory::default(), keypair.pk, None)
         .await
         .unwrap();
 
@@ -142,11 +134,11 @@ async fn core_append_no_secret_key() {
 #[tokio::test]
 async fn core_disk_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
-    let keypair = generate_keypair();
+    let keypair = KeyPair::generate();
     let mut core = Core::new(
         IndexAccessFs::new(&dir).await.unwrap(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
@@ -162,12 +154,12 @@ async fn core_disk_append() {
 #[tokio::test]
 async fn core_disk_persists() {
     let dir = tempfile::tempdir().unwrap().into_path();
-    let keypair = generate_keypair();
-    let keypair2 = Keypair::from_bytes(&keypair.to_bytes()).unwrap();
+    let keypair = KeyPair::generate();
+    let keypair2 = keypair.clone();
     let mut core = Core::new(
         IndexAccessFs::new(&dir).await.unwrap(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
@@ -177,8 +169,8 @@ async fn core_disk_persists() {
 
     let mut core = Core::new(
         IndexAccessFs::new(&dir).await.unwrap(),
-        keypair2.public,
-        Some(keypair2.secret),
+        keypair2.pk,
+        Some(keypair2.sk),
     )
     .await
     .unwrap();

@@ -101,7 +101,6 @@ where
 mod tests {
     use super::*;
     use crate::block::Signature;
-    use crate::ed25519_dalek;
     use crate::hash::Hash;
     use index_access_memory::IndexAccessMemory;
 
@@ -116,8 +115,8 @@ mod tests {
         let mut store = Store::new(IndexAccessMemory::default());
         let data = b"hello world";
         let signature = Signature::new(
-            ed25519_dalek::Signature::from_bytes(&[2u8; ed25519_dalek::SIGNATURE_LENGTH])?,
-            ed25519_dalek::Signature::from_bytes(&[7u8; ed25519_dalek::SIGNATURE_LENGTH])?,
+            ed25519_compact::Signature::from_slice(&[2u8; ed25519_compact::Signature::BYTES])?,
+            ed25519_compact::Signature::from_slice(&[7u8; ed25519_compact::Signature::BYTES])?,
         );
         let block = Block::new(1, 8, signature);
         store.write(0, data, &block).await?;

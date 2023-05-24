@@ -5,7 +5,7 @@ use std::path::Path;
 use tempfile;
 use tokio::test;
 
-use datacore::{Core, Keypair};
+use datacore::{Core, KeyPair};
 use index_access_fs::IndexAccessFs;
 
 fn read_bytes(dir: &Path, s: &str) -> Vec<u8> {
@@ -25,11 +25,11 @@ const KEYPAIR_BYTES: [u8; 64] = [
 #[test]
 pub async fn snapshots_append() {
     let dir = tempfile::tempdir().unwrap().into_path();
-    let keypair = Keypair::from_bytes(&KEYPAIR_BYTES).unwrap();
+    let keypair = KeyPair::from_slice(&KEYPAIR_BYTES).unwrap();
     let mut core = Core::new(
         IndexAccessFs::new(&dir).await.unwrap(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
