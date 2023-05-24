@@ -16,9 +16,8 @@ pub mod key;
 pub mod keypair;
 pub mod replication;
 
-pub use datacore::ed25519_dalek;
 pub use datacore::{Core, IndexAccess, Signature, MAX_CORE_LENGTH};
 
 pub use cores::Cores;
 pub use iter::CoreIterator;
-pub use keypair::Keypair;
+pub use keypair::KeyPair;

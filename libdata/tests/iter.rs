@@ -5,15 +5,15 @@ use tokio::sync::Mutex;
 use tokio::test;
 
 use index_access_memory::IndexAccessMemory;
-use libdata::{keypair, Core, CoreIterator};
+use libdata::{KeyPair, Core, CoreIterator};
 
 #[test]
 async fn iter_simple() -> Result<()> {
-    let keypair = keypair::generate();
+    let keypair = KeyPair::generate();
     let mut core = Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
@@ -33,11 +33,11 @@ async fn iter_simple() -> Result<()> {
 
 #[test]
 async fn iter_offset() -> Result<()> {
-    let keypair = keypair::generate();
+    let keypair = KeyPair::generate();
     let mut core = Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();
@@ -56,11 +56,11 @@ async fn iter_offset() -> Result<()> {
 
 #[test]
 async fn iter_out_of_bounds() -> Result<()> {
-    let keypair = keypair::generate();
+    let keypair = KeyPair::generate();
     let mut core = Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap();

@@ -100,9 +100,9 @@ where
 
         match command {
             Command::Open(key, replica) => {
-                let discovery = key::discovery(&key.to_bytes());
+                let discovery = key::discovery(&key.as_slice().try_into().unwrap());
                 self.replicas.insert(discovery, replica);
-                self.protocol.open(key.to_bytes())?;
+                self.protocol.open(*key)?;
                 Ok(true)
             }
             Command::ReOpen(key) => {

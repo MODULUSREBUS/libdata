@@ -32,7 +32,7 @@ impl<T: IndexAccess + Send> Cores<T> {
     }
     /// Put a [Arc<Mutex<Core>>] under [PublicKey].
     pub fn put(&mut self, public: &key::Public, core: Arc<Mutex<Core<T>>>) {
-        let public = public.to_bytes();
+        let public = public.as_slice().try_into().unwrap();
         let discovery = key::discovery(&public);
 
         self.map.insert(discovery, public, core);
@@ -43,7 +43,7 @@ impl<T: IndexAccess + Send> Cores<T> {
     #[must_use]
     #[inline]
     pub fn get_by_public(&self, key: &key::Public) -> Option<Arc<Mutex<Core<T>>>> {
-        self.map.get_alt(&key.to_bytes()).map(Arc::clone)
+        self.map.get_alt(key.as_slice().try_into().unwrap()).map(Arc::clone)
     }
 
     /// Try getting a [Core] by [DiscoveryKey].
@@ -72,7 +72,7 @@ impl<T: IndexAccess + Send> Cores<T> {
     pub fn public_keys(&self) -> impl Iterator<Item = key::Public> + '_ {
         self.map
             .iter()
-            .map(|(_discovery, (public, _core))| key::Public::from_bytes(public).unwrap())
+            .map(|(_discovery, (public, _core))| key::Public::from_slice(public).unwrap())
     }
     /// Get the [DiscoveryKey]s of all stored [Core]s in an arbitrary order.
     #[inline]
@@ -85,7 +85,7 @@ impl<T: IndexAccess + Send> Cores<T> {
     #[inline]
     pub fn entries(&self) -> impl Iterator<Item = (key::Public, Arc<Mutex<Core<T>>>)> + '_ {
         self.map.iter().map(|(_discovery, (public, core))| {
-            (key::Public::from_bytes(public).unwrap(), Arc::clone(core))
+            (key::Public::from_slice(public).unwrap(), Arc::clone(core))
         })
     }
 }

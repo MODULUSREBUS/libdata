@@ -9,14 +9,14 @@ use tokio::{task, test, time};
 
 use index_access_memory::IndexAccessMemory;
 use libdata::replication::{CoreReplica, Duplex, Handle, Link, Options};
-use libdata::{key, keypair, Core};
+use libdata::{key, KeyPair, Core};
 
 async fn new_core() -> Result<Core<IndexAccessMemory>> {
-    let keypair = keypair::generate();
+    let keypair = KeyPair::generate();
     Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
 }

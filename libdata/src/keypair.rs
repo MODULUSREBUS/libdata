@@ -4,49 +4,44 @@
 use anyhow::Result;
 use blake3::derive_key;
 use datacore::SecretKey;
-use rand_chacha::rand_core::SeedableRng;
-use rand_chacha::ChaCha20Rng;
 use bip39_dict::{Entropy, Mnemonics, ENGLISH, seed_from_mnemonics};
 use getrandom::getrandom;
 
-pub use datacore::{generate_keypair as generate, Keypair};
+pub use datacore::{KeyPair, Seed};
 
-/// Derive a named [Keypair] from a base [SecretKey].
+/// Derive a named [KeyPair] from a base [SecretKey].
 #[must_use]
-pub fn derive(key: &SecretKey, name: &str) -> Keypair {
-    let seed: <ChaCha20Rng as SeedableRng>::Seed = derive_key(name, &key.to_bytes());
-    let mut rng = ChaCha20Rng::from_seed(seed);
-    Keypair::generate(&mut rng)
+pub fn derive(key: &SecretKey, name: &str) -> KeyPair {
+    let seed = Seed::new(derive_key(name, key.as_slice()));
+    KeyPair::from_seed(seed)
 }
 
 /// Generate a new [Keypair] with a BIP39 mnemonic.
 #[must_use]
-pub fn generate_bip39() -> (Keypair, String) {
+pub fn generate_bip39() -> (KeyPair, String) {
     let mut seed: [u8; 32] = Default::default();
     getrandom(&mut seed).expect("Could not get RNG");
 
     let entropy = Entropy::<32>::from_slice(&seed).expect("Could not seed entropy");
 
     let mnemonics = entropy.to_mnemonics::<24, 8>().expect("Could not get mnemonics");
-    let seed: [u8; 32] = seed_from_mnemonics(
-        &ENGLISH, &mnemonics, b"libdata_keypair_generate_bip39", 2048);
+    let seed = Seed::new(seed_from_mnemonics(
+        &ENGLISH, &mnemonics, b"libdata_keypair_generate_bip39", 2048));
 
-    let mut rng = ChaCha20Rng::from_seed(seed);
-    let keypair = Keypair::generate(&mut rng);
+    let keypair = KeyPair::from_seed(seed);
 
     (keypair, mnemonics.to_string(&ENGLISH))
 }
 
 /// Recover a [Keypair] from a BIP39 mnemonic.
 #[must_use]
-pub fn recover_bip39(phrase: &str) -> Result<Keypair> {
+pub fn recover_bip39(phrase: &str) -> Result<KeyPair> {
     let mnemonics = Mnemonics::<24>::from_string(&ENGLISH, phrase)?;
 
-    let seed: [u8; 32] = seed_from_mnemonics(
-        &ENGLISH, &mnemonics, b"libdata_keypair_generate_bip39", 2048);
+    let seed = Seed::new(seed_from_mnemonics(
+        &ENGLISH, &mnemonics, b"libdata_keypair_generate_bip39", 2048));
 
-    let mut rng = ChaCha20Rng::from_seed(seed);
-    let keypair = Keypair::generate(&mut rng);
+    let keypair = KeyPair::from_seed(seed);
 
     Ok(keypair)
 }

@@ -46,7 +46,7 @@ impl Handle {
 
     /// Reopen a replica.
     pub fn reopen(&mut self, key: &key::Public) -> Result<()> {
-        self.send(Command::ReOpen(key::discovery(key.as_bytes())))
+        self.send(Command::ReOpen(key::discovery(key.as_slice().try_into().unwrap())))
     }
 
     /// Close a channel by [key::Discovery].

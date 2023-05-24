@@ -6,7 +6,7 @@ use std::mem::size_of;
 /// Byte length of the [Signature].
 pub const SIGNATURE_LENGTH: usize = 2 * ed25519_compact::Signature::BYTES;
 
-/// [Signature] holds 2 [Block] [ed255519_dalek::Signature]s:
+/// [Signature] holds 2 [Block] [ed25519_compact::Signature]s:
 /// - `data` - signature for the block data
 /// - `tree` - signature for the block position in the merkle tree
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -14,13 +14,25 @@ pub struct Signature {
     data: ed25519_compact::Signature,
     tree: ed25519_compact::Signature,
 }
-
 impl Signature {
-    /// Create a new [BlockSignature].
+    /// Create a new [Signature].
     #[must_use]
     #[inline]
     pub fn new(data: ed25519_compact::Signature, tree: ed25519_compact::Signature) -> Self {
         Self { data, tree }
+    }
+    /// Create a new [Signature].
+    #[must_use]
+    #[inline]
+    pub fn from_bytes(
+        data: [u8; ed25519_compact::Signature::BYTES],
+        tree: [u8; ed25519_compact::Signature::BYTES],
+        ) -> Self
+    {
+        Self {
+            data: ed25519_compact::Signature::from_slice(&data).unwrap(),
+            tree: ed25519_compact::Signature::from_slice(&tree).unwrap(),
+        }
     }
 
     /// Get data [Signature].

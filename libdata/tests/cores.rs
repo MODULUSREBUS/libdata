@@ -2,14 +2,14 @@ use anyhow::Result;
 use tokio::test;
 
 use index_access_memory::IndexAccessMemory;
-use libdata::{key, keypair, Core, Cores};
+use libdata::{key, KeyPair, Core, Cores};
 
 async fn new_core() -> Result<Core<IndexAccessMemory>> {
-    let keypair = keypair::generate();
+    let keypair = KeyPair::generate();
     Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
 }
@@ -27,10 +27,10 @@ async fn cores_insert_get() -> Result<()> {
     assert!(cores.get_by_public(&b.public_key()).is_none());
 
     assert!(cores
-        .get_by_discovery(&key::discovery(&a_public.to_bytes()))
+        .get_by_discovery(&key::discovery(a_public.as_slice().try_into().unwrap()))
         .is_some());
     assert!(cores
-        .get_by_discovery(&key::discovery(&b.public_key().to_bytes()))
+        .get_by_discovery(&key::discovery(b.public_key().as_slice().try_into().unwrap()))
         .is_none());
 
     assert_eq!(cores.public_keys().count(), 1);
@@ -54,10 +54,10 @@ async fn cores_insert_2() -> Result<()> {
     assert!(cores.get_by_public(&b_public).is_some());
 
     assert!(cores
-        .get_by_discovery(&key::discovery(&a_public.to_bytes()))
+        .get_by_discovery(&key::discovery(&a_public.as_slice().try_into().unwrap()))
         .is_some());
     assert!(cores
-        .get_by_discovery(&key::discovery(&b_public.to_bytes()))
+        .get_by_discovery(&key::discovery(&b_public.as_slice().try_into().unwrap()))
         .is_some());
 
     assert_eq!(cores.public_keys().count(), 2);
