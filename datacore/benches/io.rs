@@ -1,15 +1,15 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use tokio::runtime::Runtime;
 
-use datacore::{generate_keypair, Core};
+use datacore::{KeyPair, Core};
 use index_access_memory::IndexAccessMemory;
 
 async fn init() -> Core<IndexAccessMemory> {
-    let keypair = generate_keypair();
+    let keypair = KeyPair::generate();
     Core::new(
         IndexAccessMemory::default(),
-        keypair.public,
-        Some(keypair.secret),
+        keypair.pk,
+        Some(keypair.sk),
     )
     .await
     .unwrap()
